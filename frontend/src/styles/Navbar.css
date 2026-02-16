@@ -1,0 +1,143 @@
+/* Navbar Wrapper */
+.navbar-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 18px 0;
+}
+
+/* Main Container */
+.nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+/* Logo */
+.nav-logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.nav-logo span {
+  color: #27f3ff;
+}
+
+/* Glass Pill Navbar */
+.nav-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 12px 30px;
+  background: #111;
+  border-radius: 50px;
+  box-shadow: inset 0px 0px 2px rgba(255,255,255,0.2);
+}
+
+.nav-pill.open {
+  display: block;
+}
+
+/* Links */
+.nav-link {
+  color: #bbb;
+  font-size: 13px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: .8px;
+  position: relative;
+}
+
+.nav-link:hover {
+  color: #fff;
+}
+
+/* Active underline glow */
+.nav-link.active {
+  color: #fff;
+}
+
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 25%;
+  width: 50%;
+  height: 4px;
+  background: #42f3ff;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #42f3ff;
+}
+
+/* Right Controls */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Theme Button */
+.theme-btn {
+  font-size: 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: white;
+}
+
+/* Login Dropdown */
+.login-btn {
+  padding: 8px 14px;
+  background: #1f1f1f;
+  color: #fff;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  background: #111;
+  margin-top: 5px;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+}
+
+.dropdown-menu a {
+  padding: 6px 10px;
+  color: #fff;
+}
+
+/* Mobile Button */
+.menu-btn {
+  font-size: 22px;
+  color: #fff;
+  background: transparent;
+  border: none;
+  display: none;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .nav-pill {
+    position: absolute;
+    top: 75px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    flex-direction: column;
+    width: 85%;
+  }
+
+  .nav-pill.open {
+    display: flex;
+  }
+
+  .menu-btn {
+    display: block;
+  }
+}

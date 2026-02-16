@@ -1,0 +1,141 @@
+/* Page wrapper */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 70px); /* Subtract navbar height */
+  background-color: #f0f2f5;
+  padding: 2rem;
+}
+
+/* Container */
+.container {
+  width: 400px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  transition: all 0.6s ease-in-out;
+  position: relative;
+}
+
+/* Forms container */
+.forms-container {
+  width: 200%; /* Double width for sliding */
+  display: flex;
+  transition: transform 0.6s ease-in-out;
+}
+
+/* Sign In / Sign Up forms */
+.signin-signup {
+  display: flex;
+  width: 200%;
+}
+
+.sign-in-form,
+.sign-up-form {
+  width: 50%; /* Half container each */
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Slide forms */
+.container.sign-up-mode .forms-container {
+  transform: translateX(-50%);
+}
+
+/* Titles */
+.title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Input fields */
+.input-field {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.input-field i {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #888;
+}
+
+.input-field input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border-radius: 30px;
+  border: 1px solid #ccc;
+  outline: none;
+  font-size: 1rem;
+}
+
+.input-field input:focus {
+  border-color: #3b82f6;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.75rem;
+  border-radius: 30px;
+  border: none;
+  background-color: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  margin-top: 1rem;
+}
+
+.btn.solid {
+  background-color: #10b981;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+/* Panels below forms */
+.panels-container {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  flex-direction: column;
+  text-align: center;
+}
+
+.panel .btn.transparent {
+  background: none;
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 30px;
+  margin-top: 0.5rem;
+}
+
+.panel .btn.transparent:hover {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Toggle text */
+.toggle-text {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-weight: 600;
+  cursor: pointer;
+}
