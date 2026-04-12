@@ -1,0 +1,7 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "java": "cd $workspaceRoot/backend && .\\mvnw.cmd spring-boot:run"
+    }
+}
