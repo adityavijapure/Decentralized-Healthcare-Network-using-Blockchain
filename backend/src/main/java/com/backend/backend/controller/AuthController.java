@@ -1,7 +1,17 @@
-package controller;
+package com.backend.backend.controller;
+
+import com.backend.backend.model.Doctor;
+import com.backend.backend.repository.DoctorRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173") // Connect to your React app
+@CrossOrigin(origins = "http://localhost:5173")
 public class AuthController {
 
     @Autowired

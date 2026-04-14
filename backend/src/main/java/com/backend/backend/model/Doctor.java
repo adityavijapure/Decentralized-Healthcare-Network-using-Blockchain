@@ -1,4 +1,4 @@
-package com.model; // or com.backend.backend.model;
+package com.backend.backend.model; // or com.backend.backend.model;
 
 import jakarta.persistence.*;
 
