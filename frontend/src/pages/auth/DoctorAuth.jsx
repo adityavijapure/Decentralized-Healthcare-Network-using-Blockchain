@@ -16,7 +16,6 @@ export default function DoctorAuth() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Unified state for registration and login
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -25,7 +24,7 @@ export default function DoctorAuth() {
     regYear: "",
     medicalCouncil: "",
     specialization: "",
-    proofFile: null
+    proofFile: null // This will hold the actual File object
   });
 
   const toggleMode = () => {
@@ -42,17 +41,13 @@ export default function DoctorAuth() {
           email: formData.email,
           password: formData.password
         });
-
-        // Save session data returned from the fixed Backend Map
         localStorage.setItem("userEmail", res.data.email);
         localStorage.setItem("userFullname", res.data.fullname);
         localStorage.setItem("userSpecialization", res.data.specialization);
         localStorage.setItem("userRole", "Doctor");
-
-        alert(`Welcome Back, ${res.data.fullname}`);
         navigate('/doctor/dashboard');
       } catch (err) {
-        alert("Authorization Failed: " + (err.response?.data || "Check Credentials"));
+        alert("Login Failed: Check credentials.");
       } finally {
         setLoading(false);
       }
@@ -65,21 +60,22 @@ export default function DoctorAuth() {
       return;
     }
 
-    // --- 3. SIGNUP INITIALIZATION (Blockchain + DB) ---
-    if (!window.ethereum) return alert("MetaMask Required for Node Initialization");
-    
+    // --- 3. BLOCKCHAIN INITIALIZATION & MULTIPART UPLOAD ---
+    if (!window.ethereum) return alert("MetaMask Required");
+    if (!formData.proofFile) return alert("Please upload your professional photo proof.");
+
     setLoading(true);
     try {
-      // Step A: Request Blockchain Identity signature
+      // Step A: Blockchain Identity Anchoring
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
-      
-      await signer.signMessage(
-        `HealthChain Node Auth: ${formData.licenseNumber} for ${formData.email}`
-      );
 
-      // Step B: Prepare Multipart Data for File Upload
+      // Create a cryptographic hash of the registration intent
+      const blockchainMessage = `HealthChain Registration: License ${formData.licenseNumber} for ${formData.email}`;
+      const signature = await signer.signMessage(blockchainMessage);
+
+      // Step B: Multi-part Data Preparation (For Photo + Data)
       const data = new FormData();
       data.append("email", formData.email);
       data.append("password", formData.password);
@@ -89,25 +85,26 @@ export default function DoctorAuth() {
       data.append("medicalCouncil", formData.medicalCouncil);
       data.append("specialization", formData.specialization);
       data.append("walletAddress", walletAddress);
-      if (formData.proofFile) data.append("proofFile", formData.proofFile);
+      data.append("blockchainSignature", signature);
+      
+      // CRITICAL: Ensure the file is appended correctly
+      data.append("proofFile", formData.proofFile);
 
-      // Step C: Post to backend
+      // Step C: Post to backend (Saves to DB & Simulated Blockchain Node)
       const res = await axios.post("http://localhost:8085/api/doctor/signup", data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      // Save initial session
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userFullname", formData.fullname);
       localStorage.setItem("userSpecialization", formData.specialization);
-      localStorage.setItem("userRole", "Doctor");
-
-      alert("Doctor Node Successfully Secured on Blockchain!");
+      
+      alert("Doctor Node Secured & Identity Uploaded to Blockchain!");
       navigate('/doctor/dashboard');
 
     } catch (err) {
       console.error(err);
-      alert("Registration Error: Please verify all fields and MetaMask connection.");
+      alert("Registration Error: Check your backend logs or MetaMask connection.");
     } finally {
       setLoading(false);
     }
@@ -117,78 +114,60 @@ export default function DoctorAuth() {
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 lg:p-6 font-sans">
       <motion.div layout className="relative w-full max-w-5xl bg-slate-900/50 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl">
         
-        {/* LEFT PANEL: Branding */}
+        {/* LEFT PANEL */}
         <div className="md:w-1/3 bg-gradient-to-br from-blue-600 to-indigo-700 p-10 flex flex-col justify-between text-white">
-          <div className="z-10">
+          <div>
             <button onClick={() => navigate('/')} className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest">
-              <ArrowLeftIcon className="w-4 h-4" /> Back to Selection
+              <ArrowLeftIcon className="w-4 h-4" /> Back
             </button>
             <h2 className="text-4xl font-black leading-tight mt-12 tracking-tighter">
               Verified <br /> Doctor <br /> 
-              <span className="text-white/40 text-xl font-bold uppercase tracking-widest">Protocol</span>
+              <span className="text-white/40 text-xl font-bold uppercase tracking-widest">Node</span>
             </h2>
           </div>
-          <div className="z-10 bg-black/20 p-4 rounded-2xl backdrop-blur-md border border-white/5">
-            <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-2">Blockchain Node</p>
+          <div className="bg-black/20 p-4 rounded-2xl backdrop-blur-md border border-white/5">
+            <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-2">Auth Status</p>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-mono opacity-80 text-white font-bold tracking-widest">AUTHORIZED</span>
+              <span className="text-xs font-mono opacity-80 text-white font-bold">READY_FOR_UPLOAD</span>
             </div>
           </div>
         </div>
 
-        {/* RIGHT PANEL: Auth Forms */}
+        {/* RIGHT PANEL */}
         <div className="flex-1 p-8 lg:p-12 flex flex-col justify-center min-h-[600px]">
           <div className="max-w-md mx-auto w-full">
             <header className="mb-8">
               <h1 className="text-3xl font-black text-white tracking-tight">
-                {isSignUp ? (step === 1 ? "Initialize Account" : "Medical Credentials") : "Welcome Back"}
+                {isSignUp ? (step === 1 ? "Initialize Account" : "Identity Proof") : "Welcome Back"}
               </h1>
-              <p className="text-slate-400 text-sm mt-2">
-                {isSignUp ? `Step ${step} of 2` : "Verify your identity to access medical nodes."}
-              </p>
             </header>
 
             <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
               <AnimatePresence mode="wait">
                 {(!isSignUp || (isSignUp && step === 1)) && (
-                  <motion.div key="account" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                    <InputField 
-                      label="Network Email" 
-                      value={formData.email} 
-                      onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                      icon={<FingerPrintIcon className="w-5 h-5" />} 
-                      placeholder="dr.name@healthchain.io"
-                    />
-                    <InputField 
-                      label="Secure Key" 
-                      type="password" 
-                      value={formData.password} 
-                      onChange={(e) => setFormData({...formData, password: e.target.value})} 
-                      icon={<ShieldCheckIcon className="w-5 h-5" />} 
-                      placeholder="••••••••"
-                    />
+                  <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                    <InputField label="Network Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} icon={<FingerPrintIcon className="w-5 h-5" />} />
+                    <InputField label="Secure Key" type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} icon={<ShieldCheckIcon className="w-5 h-5" />} />
                     {isSignUp && (
-                      <InputField 
-                        label="Full Legal Name" 
-                        value={formData.fullname} 
-                        onChange={(e) => setFormData({...formData, fullname: e.target.value})} 
-                        icon={<UserIcon className="w-5 h-5" />} 
-                        placeholder="Dr. Alexander Pierce"
-                      />
+                      <InputField label="Full Legal Name" value={formData.fullname} onChange={(e) => setFormData({...formData, fullname: e.target.value})} icon={<UserIcon className="w-5 h-5" />} />
                     )}
                   </motion.div>
                 )}
 
                 {isSignUp && step === 2 && (
-                  <motion.div key="medical" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                  <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <InputField label="License #" value={formData.licenseNumber} onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})} icon={<IdentificationIcon className="w-5 h-5" />} placeholder="MD-12345" />
-                      <InputField label="Reg. Year" type="number" value={formData.regYear} onChange={(e) => setFormData({...formData, regYear: e.target.value})} placeholder="2024" />
+                      <InputField label="License #" value={formData.licenseNumber} onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})} icon={<IdentificationIcon className="w-5 h-5" />} />
+                      <InputField label="Reg. Year" type="number" value={formData.regYear} onChange={(e) => setFormData({...formData, regYear: e.target.value})} />
                     </div>
-                    <InputField label="Medical Council" value={formData.medicalCouncil} onChange={(e) => setFormData({...formData, medicalCouncil: e.target.value})} placeholder="National Medical Council" />
-                    <InputField label="Specialization" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} icon={<AcademicCapIcon className="w-5 h-5" />} placeholder="Cardiologist" />
-                    <FileUpload label="Verification Photo Proof" onChange={(file) => setFormData({...formData, proofFile: file})} />
+                    <InputField label="Specialization" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} icon={<AcademicCapIcon className="w-5 h-5" />} />
+                    
+                    {/* PHOTO UPLOAD BINDING */}
+                    <FileUpload 
+                      label="Verification Photo Proof" 
+                      onChange={(file) => setFormData({...formData, proofFile: file})} 
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -202,17 +181,17 @@ export default function DoctorAuth() {
                 <button 
                   onClick={handleAction} 
                   disabled={loading}
-                  className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-900/20 transition-all uppercase tracking-[0.2em] text-[10px]"
+                  className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl transition-all uppercase tracking-widest text-[10px]"
                 >
-                  {loading ? "Processing..." : (isSignUp ? (step === 1 ? "Next Protocol" : "Initialize Node") : "Authorize Access")}
+                  {loading ? "Anchoring Data..." : (isSignUp ? (step === 1 ? "Next Protocol" : "Initialize Node") : "Authorize Access")}
                 </button>
               </div>
             </form>
 
             <div className="mt-10 pt-8 border-t border-white/5 text-center">
-              <button type="button" onClick={toggleMode} className="text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-all">
+              <button type="button" onClick={toggleMode} className="text-slate-500 text-xs font-bold uppercase tracking-widest">
                 {isSignUp ? "Already registered? " : "New Doctor? "} 
-                <span className="text-blue-400 underline underline-offset-8"> {isSignUp ? "Sign In" : "Join Network"}</span>
+                <span className="text-blue-400"> {isSignUp ? "Sign In" : "Join Network"}</span>
               </button>
             </div>
           </div>

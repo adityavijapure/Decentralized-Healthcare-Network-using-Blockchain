@@ -22,23 +22,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            // 1. Disable CSRF so React can send POST requests without tokens
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 2. Apply our CORS settings defined below
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // 3. Define which URLs are public and which are private
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()    // For Login/Signup
-                .requestMatchers("/api/records/**").permitAll() // ADDED: For Medical Record Uploads
-                .anyRequest().authenticated()                  // Everything else stays locked
-            );
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(AbstractHttpConfigurer::disable) // Required for Postman/React POST requests
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .authorizeHttpRequests(auth -> auth
+            // Permitting all doctor-related auth and dashboard paths
+            .requestMatchers("/api/doctor/**").permitAll() 
+            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/records/**").permitAll()
+            .anyRequest().authenticated()
+        );
 
-        return http.build();
-    }
+    return http.build();
+}
 
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
