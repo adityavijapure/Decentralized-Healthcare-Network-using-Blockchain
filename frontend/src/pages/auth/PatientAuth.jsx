@@ -1,38 +1,76 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import axios from "axios"; // Added for backend communication
+import axios from "axios";
+import { ethers } from "ethers";
 import { UserIcon, ShieldCheckIcon, FingerPrintIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import InputField from "../../components/auth/InputField";
 
 export default function PatientAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false); // Tracks blockchain mining state
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
   const navigate = useNavigate();
 
   const handleAction = async () => {
-    // If logging in, bypass blockchain initialization for now
+    // --- LOGIN LOGIC ---
     if (!isSignUp) {
-      navigate('/patient/dashboard');
+      setLoading(true);
+      try {
+        const response = await axios.post("http://localhost:8085/api/auth/patient/login", {
+          email: formData.email,
+          password: formData.password
+        });
+
+        // 1. SAVE TO LOCALSTORAGE
+        localStorage.setItem("userEmail", formData.email);
+        // Note: You might want to save the name from response if backend returns it
+        localStorage.setItem("userFullname", "Patient User"); 
+
+        alert("Login Successful!");
+        navigate('/patient/dashboard');
+      } catch (err) {
+        alert("Login failed: " + (err.response?.data || "Server unreachable"));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // --- SIGNUP + BLOCKCHAIN LOGIC ---
+    if (!window.ethereum) {
+      alert("MetaMask not found! Please install the extension.");
       return;
     }
 
     setLoading(true);
     try {
-      // Step 1: Send data to Spring Boot backend
-      const response = await axios.post("http://localhost:8080/api/auth/patient/initialize", {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const walletAddress = await signer.getAddress();
+
+      const signature = await signer.signMessage(`Registering to HealthChain: ${formData.email}`);
+
+      const response = await axios.post("http://localhost:8085/api/auth/patient/signup", {
         fullname: formData.fullname,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        walletAddress: walletAddress 
       });
 
-      // Step 2: Display the Transaction Hash as proof of validation
-      alert(`Blockchain Node Initialized!\nTransaction Hash: ${response.data}`);
+      // 2. SAVE TO LOCALSTORAGE
+      localStorage.setItem("userEmail", formData.email);
+      localStorage.setItem("userFullname", formData.fullname);
+
+      alert(`Node Initialized!\nWallet: ${walletAddress.substring(0, 10)}...`);
       navigate('/patient/dashboard');
+
     } catch (err) {
-      console.error("Blockchain validation failed:", err);
-      alert("Failed to initialize node. Ensure your backend and blockchain node are running.");
+      console.error("Initialization failed:", err);
+      const errorMsg = err.code === "ACTION_REJECTED" 
+        ? "User rejected blockchain signature." 
+        : "Connection failed. Check if Backend is on 8085.";
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -83,7 +121,7 @@ export default function PatientAuth() {
             disabled={loading}
             className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50"
           >
-            {loading ? "Mining Identity..." : (isSignUp ? "Initialize Node" : "Access Portal")}
+            {loading ? "Processing..." : (isSignUp ? "Initialize Node" : "Access Portal")}
           </button>
         </form>
 

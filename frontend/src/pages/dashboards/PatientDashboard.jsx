@@ -1,18 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, FileUp, FolderOpen, ShieldCheck, 
-  Search, Trash2, Eye, Menu, X, UploadCloud, ChevronDown, User
+  Search, Trash2, Eye, Menu, X, UploadCloud, ChevronDown, LogOut
 } from 'lucide-react';
 
 const PatientDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const navigate = useNavigate();
   
-  // Simulated user data (This would normally come from your Auth State/Context)
-  const user = {
-    email: "john.doe@healthchain.io",
+  // --- STATE FOR USER DATA ---
+  const [user, setUser] = useState({
+    email: "Loading...",
+    fullname: "Patient User",
     role: "Patient",
-    avatarInitial: "JD"
+    avatarInitial: "P"
+  });
+
+  useEffect(() => {
+    // Retrieve data saved during Login/Signup
+    const savedEmail = localStorage.getItem("userEmail");
+    const savedName = localStorage.getItem("userFullname") || "Patient User";
+    
+    if (savedEmail) {
+      setUser({
+        email: savedEmail,
+        fullname: savedName,
+        role: "Patient",
+        avatarInitial: savedName.charAt(0).toUpperCase()
+      });
+    } else {
+      // If no email found, redirect back to login
+      navigate('/patient/auth');
+    }
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.clear(); // Wipe the email and session
+    navigate('/patient/auth');
   };
 
   const records = [
@@ -31,7 +57,7 @@ const PatientDashboard = () => {
           <div className="bg-blue-500 p-2 rounded-lg">
             <ShieldCheck size={24} />
           </div>
-          {isSidebarOpen && <span className="font-bold text-lg tracking-tight">HealthChain</span>}
+          {isSidebarOpen && <span className="font-bold text-lg tracking-tight text-white">HealthChain</span>}
         </div>
 
         <nav className="flex-1 p-4 space-y-2 mt-4">
@@ -56,13 +82,22 @@ const PatientDashboard = () => {
             isOpen={isSidebarOpen} 
             onClick={() => setActiveTab('requests')} 
           />
+          
+          {/* Logout Button in Sidebar for mobile/quick access */}
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 p-3 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-all mt-10"
+          >
+            <LogOut size={20} />
+            {isSidebarOpen && <span className="text-sm font-semibold">Logout</span>}
+          </button>
         </nav>
       </aside>
 
       {/* MAIN CONTENT AREA */}
       <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}>
         
-        {/* NEW DASHBOARD-SPECIFIC NAVBAR */}
+        {/* NAVBAR */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500">
@@ -75,32 +110,27 @@ const PatientDashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Search (Desktop) */}
             <div className="relative hidden lg:block mr-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input type="text" placeholder="Search records..." className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64" />
+              <input type="text" placeholder="Search records..." className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm outline-none w-64" />
             </div>
 
-            {/* Role & Email Badge */}
+            {/* DYNAMIC EMAIL & NAME SECTION */}
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
               <div className="hidden md:flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                  <span className="bg-blue-100 text-blue-600 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                  <span className="bg-emerald-100 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
                     {user.role}
                   </span>
-                  <p className="text-sm font-bold text-slate-800 tracking-tight">John Doe</p>
+                  <p className="text-sm font-bold text-slate-800 tracking-tight">{user.fullname}</p>
                 </div>
                 <p className="text-xs text-slate-500 font-medium">{user.email}</p>
               </div>
 
-              {/* Avatar Component */}
-              <div className="relative group cursor-pointer">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200 ring-2 ring-white">
-                  {user.avatarInitial}
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+              {/* Avatar with dynamic Initial */}
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200 ring-2 ring-white">
+                {user.avatarInitial}
               </div>
-              <ChevronDown size={16} className="text-slate-400 hidden sm:block" />
             </div>
           </div>
         </header>

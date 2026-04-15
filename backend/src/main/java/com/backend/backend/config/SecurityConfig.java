@@ -8,6 +8,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; // Add this import
 
 import java.util.List;
 
@@ -15,18 +16,18 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // THIS IS THE MISSING PIECE
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(); 
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Disable CSRF (Mandatory for testing POST requests from React)
             .csrf(AbstractHttpConfigurer::disable)
-            
-            // 2. Enable CORS with our custom settings
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // 3. Set permissions
             .authorizeHttpRequests(auth -> auth
-                // This line MUST match your Controller's RequestMapping
                 .requestMatchers("/api/auth/**").permitAll() 
                 .anyRequest().authenticated()
             );

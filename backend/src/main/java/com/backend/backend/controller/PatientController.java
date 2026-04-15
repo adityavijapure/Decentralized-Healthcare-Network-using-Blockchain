@@ -21,13 +21,13 @@ public class PatientController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> register(@RequestBody PatientRequest patient) {
+    // patient will now automatically contain fullname and walletAddress from React
         if (patientRepository.findByEmail(patient.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest().body("Email already exists!");
+        return ResponseEntity.badRequest().body("Email already exists!");
         }
         patient.setPassword(HashUtil.hashPassword(patient.getPassword()));
         return ResponseEntity.ok(patientRepository.save(patient));
     }
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
         String email = credentials.get("email");
