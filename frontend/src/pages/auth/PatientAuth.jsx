@@ -23,9 +23,13 @@ export default function PatientAuth() {
         });
 
         // 1. SAVE TO LOCALSTORAGE
+        // We save the email from the form and the name from the server response
         localStorage.setItem("userEmail", formData.email);
-        // Note: You might want to save the name from response if backend returns it
-        localStorage.setItem("userFullname", "Patient User"); 
+        
+        // If your backend returns the user object, use response.data.fullname
+        // Otherwise, we fallback to a generic name for now
+        const displayName = response.data.fullname || "Patient User";
+        localStorage.setItem("userFullname", displayName); 
 
         alert("Login Successful!");
         navigate('/patient/dashboard');
@@ -49,6 +53,7 @@ export default function PatientAuth() {
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
 
+      // Cryptographic signature to anchor the identity
       const signature = await signer.signMessage(`Registering to HealthChain: ${formData.email}`);
 
       const response = await axios.post("http://localhost:8085/api/auth/patient/signup", {
@@ -59,6 +64,7 @@ export default function PatientAuth() {
       });
 
       // 2. SAVE TO LOCALSTORAGE
+      // During signup, we already have the fullname in our formData
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userFullname", formData.fullname);
 
@@ -78,8 +84,15 @@ export default function PatientAuth() {
 
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-md bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl">
-        <button onClick={() => navigate('/')} className="mb-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="w-full max-w-md bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl"
+      >
+        <button 
+          onClick={() => navigate('/')} 
+          className="mb-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
+        >
           <ArrowLeftIcon className="w-4 h-4" /> Back
         </button>
         
@@ -98,7 +111,7 @@ export default function PatientAuth() {
               label="Full Legal Name" 
               value={formData.fullname}
               onChange={(e) => setFormData({...formData, fullname: e.target.value})}
-              icon={<UserIcon />} 
+              icon={<UserIcon className="w-5 h-5" />} 
             />
           )}
           <InputField 
@@ -106,28 +119,41 @@ export default function PatientAuth() {
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
             type="email" 
-            icon={<FingerPrintIcon />} 
+            icon={<FingerPrintIcon className="w-5 h-5" />} 
           />
           <InputField 
             label="Secure Key" 
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
             type="password" 
-            icon={<ShieldCheckIcon />} 
+            icon={<ShieldCheckIcon className="w-5 h-5" />} 
           />
           
           <button 
             onClick={handleAction} 
             disabled={loading}
-            className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50"
+            className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50 shadow-lg shadow-teal-500/10"
           >
-            {loading ? "Processing..." : (isSignUp ? "Initialize Node" : "Access Portal")}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-slate-950" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              isSignUp ? "Initialize Node" : "Access Portal"
+            )}
           </button>
         </form>
 
         <p className="mt-8 text-center text-sm text-slate-500">
           {isSignUp ? "Already a member?" : "New to the network?"} 
-          <button onClick={() => setIsSignUp(!isSignUp)} className="ml-2 text-teal-400 font-bold hover:underline underline-offset-8">
+          <button 
+            onClick={() => setIsSignUp(!isSignUp)} 
+            className="ml-2 text-teal-400 font-bold hover:underline underline-offset-8"
+          >
             {isSignUp ? "Login" : "Join Now"}
           </button>
         </p>
