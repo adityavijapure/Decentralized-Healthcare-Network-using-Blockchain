@@ -8,7 +8,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; // Add this import
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.List;
 
@@ -16,7 +16,6 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // THIS IS THE MISSING PIECE
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(); 
@@ -25,11 +24,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // 1. Disable CSRF so React can send POST requests without tokens
             .csrf(AbstractHttpConfigurer::disable)
+            
+            // 2. Apply our CORS settings defined below
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
+            // 3. Define which URLs are public and which are private
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() 
-                .anyRequest().authenticated()
+                .requestMatchers("/api/auth/**").permitAll()    // For Login/Signup
+                .requestMatchers("/api/records/**").permitAll() // ADDED: For Medical Record Uploads
+                .anyRequest().authenticated()                  // Everything else stays locked
             );
 
         return http.build();
@@ -39,12 +44,16 @@ public class SecurityConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        
+        // Ensure this matches your Vite frontend port
+        config.setAllowedOrigins(List.of("http://localhost:5173")); 
+        
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        // Applies these rules to every single endpoint in the app
+        source.registerCorsConfiguration("/**", config); 
         return source;
     }
 }
