@@ -5,15 +5,24 @@ import axios from "axios";
 import { ethers } from "ethers";
 import { UserIcon, ShieldCheckIcon, FingerPrintIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import InputField from "../../components/auth/InputField";
+import FileUpload from "../../components/auth/FileUpload"; // Added for Profile/Document upload
 
 export default function PatientAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ fullname: "", email: "", password: "" });
+  
+  // Updated state to include profileImage
+  const [formData, setFormData] = useState({ 
+    fullname: "", 
+    email: "", 
+    password: "",
+    profileImage: null 
+  });
+  
   const navigate = useNavigate();
 
   const handleAction = async () => {
-    // --- LOGIN LOGIC ---
+    // --- 1. LOGIN LOGIC ---
     if (!isSignUp) {
       setLoading(true);
       try {
@@ -22,16 +31,13 @@ export default function PatientAuth() {
           password: formData.password
         });
 
-        // 1. SAVE TO LOCALSTORAGE
-        // We save the email from the form and the name from the server response
         localStorage.setItem("userEmail", formData.email);
-        
-        // If your backend returns the user object, use response.data.fullname
-        // Otherwise, we fallback to a generic name for now
-        const displayName = response.data.fullname || "Patient User";
-        localStorage.setItem("userFullname", displayName); 
+        localStorage.setItem("userFullname", response.data.fullname || "Patient User");
+        localStorage.setItem("userRole", "Patient");
+        // Save profile image path if returned by backend
+        localStorage.setItem("userAvatar", response.data.profileImagePath || "");
 
-        alert("Login Successful!");
+        alert("Access Granted to HealthChain Node");
         navigate('/patient/dashboard');
       } catch (err) {
         alert("Login failed: " + (err.response?.data || "Server unreachable"));
@@ -41,7 +47,7 @@ export default function PatientAuth() {
       return;
     }
 
-    // --- SIGNUP + BLOCKCHAIN LOGIC ---
+    // --- 2. SIGNUP + BLOCKCHAIN LOGIC ---
     if (!window.ethereum) {
       alert("MetaMask not found! Please install the extension.");
       return;
@@ -53,69 +59,89 @@ export default function PatientAuth() {
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
 
-      // Cryptographic signature to anchor the identity
-      const signature = await signer.signMessage(`Registering to HealthChain: ${formData.email}`);
+      // Cryptographic signature
+      const signature = await signer.signMessage(`Registering Patient Node: ${formData.email}`);
 
-      const response = await axios.post("http://localhost:8085/api/auth/patient/signup", {
-        fullname: formData.fullname,
-        email: formData.email,
-        password: formData.password,
-        walletAddress: walletAddress 
+      // We use FormData to handle the profile image upload
+      const data = new FormData();
+      data.append("fullname", formData.fullname);
+      data.append("email", formData.email);
+      data.append("password", formData.password);
+      data.append("walletAddress", walletAddress);
+      data.append("signature", signature);
+      
+      if (formData.profileImage) {
+        data.append("profileImage", formData.profileImage); // This attaches the actual file
+      }
+
+      await axios.post("http://localhost:8085/api/auth/patient/signup", data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      // 2. SAVE TO LOCALSTORAGE
-      // During signup, we already have the fullname in our formData
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userFullname", formData.fullname);
+      localStorage.setItem("userRole", "Patient");
 
-      alert(`Node Initialized!\nWallet: ${walletAddress.substring(0, 10)}...`);
+      alert(`Node Initialized Successfully!`);
       navigate('/patient/dashboard');
 
     } catch (err) {
       console.error("Initialization failed:", err);
-      const errorMsg = err.code === "ACTION_REJECTED" 
-        ? "User rejected blockchain signature." 
-        : "Connection failed. Check if Backend is on 8085.";
-      alert(errorMsg);
+      alert("Verification Error: Check your backend logs or MetaMask.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans">
       <motion.div 
+        layout // Smooth transition when expanding for file upload
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
-        className="w-full max-w-md bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl"
+        className="w-full max-w-md bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl overflow-y-auto max-h-[95vh]"
       >
         <button 
           onClick={() => navigate('/')} 
-          className="mb-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
+          className="mb-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-[0.2em]"
         >
-          <ArrowLeftIcon className="w-4 h-4" /> Back
+          <ArrowLeftIcon className="w-4 h-4" /> Back to Selection
         </button>
         
         <div className="text-center mb-10">
-          <div className="inline-flex p-3 bg-teal-500/20 rounded-xl mb-4 text-teal-400">
+          <div className="inline-flex p-3 bg-teal-500/20 rounded-2xl mb-4 text-teal-400 border border-teal-500/20">
             <UserIcon className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black text-white uppercase tracking-tighter">
             Patient {isSignUp ? "Initialization" : "Login"}
           </h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">
+            Secure Decentralized Health Node
+          </p>
         </div>
 
         <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
           {isSignUp && (
-            <InputField 
-              label="Full Legal Name" 
-              value={formData.fullname}
-              onChange={(e) => setFormData({...formData, fullname: e.target.value})}
-              icon={<UserIcon className="w-5 h-5" />} 
-            />
+            <>
+              <InputField 
+                label="Full Legal Name" 
+                placeholder="e.g. Jane Margaret Doe"
+                value={formData.fullname}
+                onChange={(e) => setFormData({...formData, fullname: e.target.value})}
+                icon={<UserIcon className="w-5 h-5" />} 
+              />
+              {/* Added the FileUpload for Profile Picture */}
+              <FileUpload 
+                label="Profile Picture (Optional)"
+                hint="Used for on-chain identity (JPG/PNG)"
+                onChange={(file) => setFormData({...formData, profileImage: file})}
+              />
+            </>
           )}
+
           <InputField 
             label="Network Email" 
+            placeholder="name@example.com"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
             type="email" 
@@ -123,6 +149,7 @@ export default function PatientAuth() {
           />
           <InputField 
             label="Secure Key" 
+            placeholder="••••••••"
             value={formData.password}
             onChange={(e) => setFormData({...formData, password: e.target.value})}
             type="password" 
@@ -132,29 +159,19 @@ export default function PatientAuth() {
           <button 
             onClick={handleAction} 
             disabled={loading}
-            className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 disabled:opacity-50 shadow-lg shadow-teal-500/10"
+            className="w-full py-5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] mt-4 disabled:opacity-50 shadow-xl shadow-teal-500/20 active:scale-[0.98]"
           >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-slate-950" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Processing...
-              </span>
-            ) : (
-              isSignUp ? "Initialize Node" : "Access Portal"
-            )}
+            {loading ? "Anchoring to Blockchain..." : (isSignUp ? "Initialize Node" : "Access Portal")}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-slate-500">
-          {isSignUp ? "Already a member?" : "New to the network?"} 
+        <p className="mt-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">
+          {isSignUp ? "Existing Patient?" : "New to the Network?"} 
           <button 
             onClick={() => setIsSignUp(!isSignUp)} 
-            className="ml-2 text-teal-400 font-bold hover:underline underline-offset-8"
+            className="ml-2 text-teal-400 hover:text-teal-300 underline underline-offset-8 transition-colors"
           >
-            {isSignUp ? "Login" : "Join Now"}
+            {isSignUp ? "Sign In" : "Join Now"}
           </button>
         </p>
       </motion.div>
