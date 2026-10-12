@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import { 
   LayoutDashboard, Key, Users, ClipboardList, 
   Search, Eye, Trash2, Bell, Menu, X, ShieldAlert,
@@ -47,7 +48,7 @@ const DoctorDashboard = () => {
   // --- 2. BLOCKCHAIN & DATABASE FETCH ---
   const fetchAccessibleRecords = async () => {
     try {
-      const res = await axios.get(`http://localhost:8085/api/doctor/records/${doctor.email}`);
+      const res = await axios.get(`${API_BASE_URL}/api/doctor/records/${doctor.email}`);
       setRecords(res.data);
     } catch (err) {
       console.error("Access denied or server offline.");
@@ -62,7 +63,7 @@ const DoctorDashboard = () => {
     
     setLoading(true);
     try {
-      await axios.post("http://localhost:8085/api/doctor/request-access", {
+      await axios.post(`${API_BASE_URL}/api/doctor/request-access`, {
         doctorEmail: doctor.email,
         patientEmail: requestData.patientEmail,
         type: requestData.requestType

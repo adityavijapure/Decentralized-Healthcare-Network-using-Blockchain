@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import { UserIcon, ShieldCheckIcon, FingerPrintIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload"; // Added for Profile/Document upload
+import { API_BASE_URL } from "../../config/api";
 
 export default function PatientAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -26,7 +27,7 @@ export default function PatientAuth() {
     if (!isSignUp) {
       setLoading(true);
       try {
-        const response = await axios.post("http://localhost:8085/api/auth/patient/login", {
+        const response = await axios.post(`${API_BASE_URL}/api/auth/patient/login`, {
           email: formData.email,
           password: formData.password
         });
@@ -49,20 +50,50 @@ export default function PatientAuth() {
 
     // --- 2. SIGNUP + BLOCKCHAIN LOGIC ---
     if (!window.ethereum) {
-      alert("MetaMask not found! Please install the extension.");
+      alert("MetaMask not found! Please install the MetaMask browser extension and refresh.");
       return;
     }
 
     setLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // 1. Explicitly prompt user to connect account in MetaMask
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (!accounts || accounts.length === 0) {
+        alert("Please connect an active account in MetaMask.");
+        setLoading(false);
+        return;
+      }
+
+      // 2. BrowserProvider with "any" network tolerance
+      const provider = new ethers.BrowserProvider(window.ethereum, "any");
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
 
-      // Cryptographic signature
-      const signature = await signer.signMessage(`Registering Patient Node: ${formData.email}`);
+      // 3. Request cryptographic signature
+      let signature;
+      try {
+        signature = await signer.signMessage(`Registering Patient Node: ${formData.email}`);
+      } catch (signErr) {
+        if (
+          signErr.code === 4001 || 
+          signErr.info?.error?.code === 4001 || 
+          signErr.message?.toLowerCase().includes("user rejected")
+        ) {
+          alert("Signature rejected in MetaMask. Please approve the signature to initialize your patient account.");
+          return;
+        }
+        if (
+          signErr.code === "NETWORK_ERROR" || 
+          signErr.message?.toLowerCase().includes("could not detect network") ||
+          signErr.message?.toLowerCase().includes("network")
+        ) {
+          alert("MetaMask Network Error: MetaMask cannot connect to the currently selected network (such as offline Localhost 8545). Please switch MetaMask to Sepolia Testnet or Ethereum Mainnet.");
+          return;
+        }
+        throw signErr;
+      }
 
-      // We use FormData to handle the profile image upload
+      // 4. Form data preparation
       const data = new FormData();
       data.append("fullname", formData.fullname);
       data.append("email", formData.email);
@@ -71,12 +102,23 @@ export default function PatientAuth() {
       data.append("signature", signature);
       
       if (formData.profileImage) {
-        data.append("profileImage", formData.profileImage); // This attaches the actual file
+        data.append("profileImage", formData.profileImage);
       }
 
-      await axios.post("http://localhost:8085/api/auth/patient/signup", data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // 5. Submit to backend API
+      try {
+        await axios.post(`${API_BASE_URL}/api/auth/patient/signup`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch (apiErr) {
+        if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
+          alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease make sure the Spring Boot backend is running.`);
+          return;
+        }
+        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on backend";
+        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        return;
+      }
 
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userFullname", formData.fullname);
@@ -87,7 +129,11 @@ export default function PatientAuth() {
 
     } catch (err) {
       console.error("Initialization failed:", err);
-      alert("Verification Error: Check your backend logs or MetaMask.");
+      if (err.code === "NETWORK_ERROR" || err.message?.toLowerCase().includes("could not detect network")) {
+        alert("MetaMask Network Error: Please ensure MetaMask is connected to an active network (e.g. Sepolia or Ethereum Mainnet).");
+      } else {
+        alert("Initialization Error: " + (err.message || "Unknown error occurred."));
+      }
     } finally {
       setLoading(false);
     }

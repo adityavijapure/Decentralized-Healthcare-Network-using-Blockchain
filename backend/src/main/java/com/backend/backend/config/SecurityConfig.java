@@ -27,10 +27,12 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
         .csrf(AbstractHttpConfigurer::disable) // Required for Postman/React POST requests
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(auth -> auth
-            // Permitting all doctor-related auth and dashboard paths
             .requestMatchers("/api/doctor/**").permitAll() 
             .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/hospital/**").permitAll()
             .requestMatchers("/api/records/**").permitAll()
+            .requestMatchers("/uploads/**").permitAll()
+            .requestMatchers("/error").permitAll()
             .anyRequest().authenticated()
         );
 

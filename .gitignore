@@ -1,0 +1,11 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

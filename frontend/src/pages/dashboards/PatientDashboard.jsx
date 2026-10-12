@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api';
 import { 
   LayoutDashboard, FileUp, FolderOpen, ShieldCheck, 
   Search, Trash2, Eye, Menu, X, UploadCloud, ChevronDown, LogOut
@@ -38,7 +39,7 @@ const PatientDashboard = () => {
   // --- API CALL: FETCH RECORDS ---
   const fetchRecords = async (email) => {
     try {
-      const res = await axios.get(`http://localhost:8085/api/records/${email}`);
+      const res = await axios.get(`${API_BASE_URL}/api/records/${email}`);
       setRecords(res.data);
     } catch (err) {
       console.error("Failed to fetch records:", err);
@@ -63,7 +64,7 @@ const PatientDashboard = () => {
     formData.append("email", user.email);
 
     try {
-      await axios.post("http://localhost:8085/api/records/upload", formData, {
+      await axios.post(`${API_BASE_URL}/api/records/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -84,7 +85,7 @@ const PatientDashboard = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this record? On-chain data remains permanent.")) return;
     try {
-      await axios.delete(`http://localhost:8085/api/records/${id}`);
+      await axios.delete(`${API_BASE_URL}/api/records/${id}`);
       fetchRecords(user.email);
     } catch (err) {
       alert("Delete failed.");

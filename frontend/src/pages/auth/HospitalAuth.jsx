@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
+import { API_BASE_URL } from "../../config/api";
 
 export default function HospitalAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -42,7 +43,7 @@ export default function HospitalAuth() {
       if (!formData.email || !formData.password) return alert("Please enter credentials.");
       setLoading(true);
       try {
-        const res = await axios.post("http://localhost:8085/api/hospital/login", {
+        const res = await axios.post(`${API_BASE_URL}/api/hospital/login`, {
           email: formData.email,
           password: formData.password
         });
@@ -67,13 +68,43 @@ export default function HospitalAuth() {
 
     setLoading(true);
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      // Step A: Request accounts explicitly
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (!accounts || accounts.length === 0) {
+        alert("Please connect an active account in MetaMask.");
+        setLoading(false);
+        return;
+      }
+
+      // Step B: BrowserProvider with "any" network tolerance
+      const provider = new ethers.BrowserProvider(window.ethereum, "any");
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
       
-      const signature = await signer.signMessage(
-        `HealthChain Institutional Authorization:\nInstitution: ${formData.hospitalName}\nLicense: ${formData.licenseNumber}\nAdmin: ${formData.email}`
-      );
+      let signature;
+      try {
+        signature = await signer.signMessage(
+          `HealthChain Institutional Authorization:\nInstitution: ${formData.hospitalName}\nLicense: ${formData.licenseNumber}\nAdmin: ${formData.email}`
+        );
+      } catch (signErr) {
+        if (
+          signErr.code === 4001 || 
+          signErr.info?.error?.code === 4001 || 
+          signErr.message?.toLowerCase().includes("user rejected")
+        ) {
+          alert("Signature rejected in MetaMask. Please approve the signature to initialize your institutional account.");
+          return;
+        }
+        if (
+          signErr.code === "NETWORK_ERROR" || 
+          signErr.message?.toLowerCase().includes("could not detect network") ||
+          signErr.message?.toLowerCase().includes("network")
+        ) {
+          alert("MetaMask Network Error: MetaMask cannot connect to the currently selected network (such as offline Localhost 8545). Please switch MetaMask to Sepolia Testnet or Ethereum Mainnet.");
+          return;
+        }
+        throw signErr;
+      }
 
       const data = new FormData();
       data.append("email", formData.email);
@@ -87,9 +118,19 @@ export default function HospitalAuth() {
       data.append("regCert", formData.regCert);
       if (formData.hospitalLogo) data.append("hospitalLogo", formData.hospitalLogo);
 
-      await axios.post("http://localhost:8085/api/hospital/signup", data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      try {
+        await axios.post(`${API_BASE_URL}/api/hospital/signup`, data, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } catch (apiErr) {
+        if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
+          alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease make sure the Spring Boot backend is running.`);
+          return;
+        }
+        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Onboarding failed on backend";
+        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        return;
+      }
 
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userFullname", formData.hospitalName);
@@ -99,7 +140,11 @@ export default function HospitalAuth() {
       navigate('/hospital/dashboard');
     } catch (err) {
       console.error(err);
-      alert(err.response?.data || "Onboarding failed. Verify your network.");
+      if (err.code === "NETWORK_ERROR" || err.message?.toLowerCase().includes("could not detect network")) {
+        alert("MetaMask Network Error: Please ensure MetaMask is connected to an active network (e.g. Sepolia or Ethereum Mainnet).");
+      } else {
+        alert("Onboarding Error: " + (err.message || "Verify your network."));
+      }
     } finally {
       setLoading(false);
     }
