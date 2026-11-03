@@ -1,18 +1,10 @@
 package com.backend.backend.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "doctors")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class Doctor {
 
     @Id
@@ -42,6 +34,64 @@ public class Doctor {
     // Status: e.g., "AUTHORIZED_NODE", "PENDING_VERIFICATION", or "VERIFIED"
     private String status;
 
-    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public Doctor() {
+    }
+
+    public Doctor(String fullname, String email, String password, String licenseNumber, 
+                  String specialization, String medicalCouncil, String regYear, 
+                  String walletAddress, String proofFilePath, String validityHash, String status) {
+        this.fullname = fullname;
+        this.email = email;
+        this.password = password;
+        this.licenseNumber = licenseNumber;
+        this.specialization = specialization;
+        this.medicalCouncil = medicalCouncil;
+        this.regYear = regYear;
+        this.walletAddress = walletAddress;
+        this.proofFilePath = proofFilePath;
+        this.validityHash = validityHash;
+        this.status = status;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getFullname() { return fullname; }
+    public void setFullname(String fullname) { this.fullname = fullname; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getLicenseNumber() { return licenseNumber; }
+    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
+
+    public String getSpecialization() { return specialization; }
+    public void setSpecialization(String specialization) { this.specialization = specialization; }
+
+    public String getMedicalCouncil() { return medicalCouncil; }
+    public void setMedicalCouncil(String medicalCouncil) { this.medicalCouncil = medicalCouncil; }
+
+    public String getRegYear() { return regYear; }
+    public void setRegYear(String regYear) { this.regYear = regYear; }
+
+    public String getWalletAddress() { return walletAddress; }
+    public void setWalletAddress(String walletAddress) { this.walletAddress = walletAddress; }
+
+    public String getProofFilePath() { return proofFilePath; }
+    public void setProofFilePath(String proofFilePath) { this.proofFilePath = proofFilePath; }
+
+    public String getValidityHash() { return validityHash; }
+    public void setValidityHash(String validityHash) { this.validityHash = validityHash; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

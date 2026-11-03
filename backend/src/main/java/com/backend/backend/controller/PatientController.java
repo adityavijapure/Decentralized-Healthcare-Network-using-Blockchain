@@ -6,7 +6,7 @@ import com.backend.backend.dto.response.AuthResponse;
 import com.backend.backend.entity.Patient;
 import com.backend.backend.service.PatientService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,10 +14,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/auth/patient")
 @CrossOrigin(origins = "http://localhost:5173")
-@RequiredArgsConstructor
 public class PatientController {
 
     private final PatientService patientService;
+
+    @Autowired
+    public PatientController(PatientService patientService) {
+        this.patientService = patientService;
+    }
 
     @PostMapping(value = "/signup", consumes = { "multipart/form-data", "application/x-www-form-urlencoded" })
     public ResponseEntity<Patient> registerMultipart(
@@ -28,14 +32,7 @@ public class PatientController {
             @RequestParam(value = "signature", required = false) String signature,
             @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
 
-        PatientSignupRequest request = PatientSignupRequest.builder()
-                .email(email)
-                .password(password)
-                .fullname(fullname)
-                .walletAddress(walletAddress)
-                .signature(signature)
-                .build();
-
+        PatientSignupRequest request = new PatientSignupRequest(fullname, email, password, walletAddress, signature);
         Patient saved = patientService.registerMultipart(request, profileImage);
         return ResponseEntity.ok(saved);
     }

@@ -25,3 +25,4 @@ public final class AppConstants {
     public static final String UPLOAD_DIR_PATIENTS = "uploads/patients";
     public static final String UPLOAD_DIR_RECORDS = "uploads/medical_records";
 }
+

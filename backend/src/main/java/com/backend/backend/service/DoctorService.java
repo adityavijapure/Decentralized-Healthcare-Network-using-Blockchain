@@ -16,3 +16,4 @@ public interface DoctorService {
     List<MedicalRecord> getAccessibleRecords(String email);
     String requestAccess(AccessRequestDto request);
 }
+

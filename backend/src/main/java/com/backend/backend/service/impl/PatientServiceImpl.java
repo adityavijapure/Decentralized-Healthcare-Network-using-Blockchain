@@ -11,19 +11,27 @@ import com.backend.backend.repository.PatientRepository;
 import com.backend.backend.service.FileStorageService;
 import com.backend.backend.service.PatientService;
 import com.backend.backend.util.HashUtil;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-@RequiredArgsConstructor
 public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
     private final FileStorageService fileStorageService;
     private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public PatientServiceImpl(PatientRepository patientRepository, 
+                              FileStorageService fileStorageService, 
+                              PasswordEncoder passwordEncoder) {
+        this.patientRepository = patientRepository;
+        this.fileStorageService = fileStorageService;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     @Transactional
@@ -37,13 +45,13 @@ public class PatientServiceImpl implements PatientService {
             profileImagePath = fileStorageService.storeFile(profileImage, AppConstants.UPLOAD_DIR_PATIENTS);
         }
 
-        Patient patient = Patient.builder()
-                .fullname(request.getFullname())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .walletAddress(request.getWalletAddress())
-                .profileImagePath(profileImagePath)
-                .build();
+        Patient patient = new Patient(
+                request.getFullname(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getWalletAddress(),
+                profileImagePath
+        );
 
         return patientRepository.save(patient);
     }
@@ -55,12 +63,13 @@ public class PatientServiceImpl implements PatientService {
             throw new DuplicateResourceException("Email already exists!");
         }
 
-        Patient patient = Patient.builder()
-                .fullname(request.getFullname())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .walletAddress(request.getWalletAddress())
-                .build();
+        Patient patient = new Patient(
+                request.getFullname(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getWalletAddress(),
+                null
+        );
 
         return patientRepository.save(patient);
     }

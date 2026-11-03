@@ -7,3 +7,4 @@ public interface BlockchainService {
     String generateNodeHash(String prefix, String identifier);
     boolean verifyEthereumSignature(String message, String signature, String walletAddress);
 }
+

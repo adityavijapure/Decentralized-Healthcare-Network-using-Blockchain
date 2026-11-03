@@ -6,7 +6,7 @@ import com.backend.backend.dto.response.AuthResponse;
 import com.backend.backend.entity.Hospital;
 import com.backend.backend.service.HospitalService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,10 +14,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/hospital")
 @CrossOrigin(origins = "http://localhost:5173")
-@RequiredArgsConstructor
 public class HospitalController {
 
     private final HospitalService hospitalService;
+
+    @Autowired
+    public HospitalController(HospitalService hospitalService) {
+        this.hospitalService = hospitalService;
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<Hospital> registerHospital(
@@ -27,19 +31,13 @@ public class HospitalController {
             @RequestParam(value = "estYear", required = false, defaultValue = "2000") String estYear,
             @RequestParam("licenseNumber") String licenseNumber,
             @RequestParam(value = "councilReg", required = false, defaultValue = "State Medical Registry") String councilReg,
-            @RequestParam("walletAddress") String walletAddress,
+            @RequestParam(value = "walletAddress", required = false) String walletAddress,
             @RequestParam("regCert") MultipartFile regCert,
             @RequestParam(value = "hospitalLogo", required = false) MultipartFile hospitalLogo) {
 
-        HospitalSignupRequest request = HospitalSignupRequest.builder()
-                .email(email)
-                .password(password)
-                .hospitalName(hospitalName)
-                .estYear(estYear)
-                .licenseNumber(licenseNumber)
-                .councilReg(councilReg)
-                .walletAddress(walletAddress)
-                .build();
+        HospitalSignupRequest request = new HospitalSignupRequest(
+                hospitalName, email, password, estYear, licenseNumber, councilReg, walletAddress
+        );
 
         Hospital hospital = hospitalService.register(request, regCert, hospitalLogo);
         return ResponseEntity.ok(hospital);

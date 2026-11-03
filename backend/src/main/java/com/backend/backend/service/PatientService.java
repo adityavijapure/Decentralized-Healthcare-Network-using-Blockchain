@@ -11,3 +11,4 @@ public interface PatientService {
     Patient registerJson(PatientSignupRequest request);
     AuthResponse login(PatientLoginRequest request);
 }
+

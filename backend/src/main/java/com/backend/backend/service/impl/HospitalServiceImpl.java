@@ -12,20 +12,30 @@ import com.backend.backend.repository.HospitalRepository;
 import com.backend.backend.service.BlockchainService;
 import com.backend.backend.service.FileStorageService;
 import com.backend.backend.service.HospitalService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-@RequiredArgsConstructor
 public class HospitalServiceImpl implements HospitalService {
 
     private final HospitalRepository hospitalRepository;
     private final FileStorageService fileStorageService;
     private final BlockchainService blockchainService;
     private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public HospitalServiceImpl(HospitalRepository hospitalRepository,
+                               FileStorageService fileStorageService,
+                               BlockchainService blockchainService,
+                               PasswordEncoder passwordEncoder) {
+        this.hospitalRepository = hospitalRepository;
+        this.fileStorageService = fileStorageService;
+        this.blockchainService = blockchainService;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     @Transactional
@@ -47,19 +57,19 @@ public class HospitalServiceImpl implements HospitalService {
 
         String blockchainHash = blockchainService.generateNodeHash("HOSP-NODE", request.getEmail());
 
-        Hospital hospital = Hospital.builder()
-                .email(request.getEmail())
-                .hospitalName(request.getHospitalName())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .licenseNumber(request.getLicenseNumber())
-                .estYear(request.getEstYear())
-                .councilReg(request.getCouncilReg())
-                .walletAddress(request.getWalletAddress())
-                .regCertPath(regCertName)
-                .logoPath(logoName)
-                .blockchainHash(blockchainHash)
-                .status(AppConstants.STATUS_VERIFIED)
-                .build();
+        Hospital hospital = new Hospital(
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getHospitalName(),
+                request.getEstYear(),
+                request.getLicenseNumber(),
+                request.getCouncilReg(),
+                regCertName,
+                logoName,
+                request.getWalletAddress(),
+                blockchainHash,
+                AppConstants.STATUS_VERIFIED
+        );
 
         return hospitalRepository.save(hospital);
     }

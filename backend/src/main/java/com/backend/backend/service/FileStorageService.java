@@ -6,3 +6,4 @@ public interface FileStorageService {
     String storeFile(MultipartFile file, String subDirectory);
     void deleteFile(String relativePath);
 }
+

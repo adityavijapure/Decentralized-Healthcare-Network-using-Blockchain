@@ -10,3 +10,4 @@ public interface HospitalService {
     Hospital register(HospitalSignupRequest request, MultipartFile regCert, MultipartFile hospitalLogo);
     AuthResponse login(HospitalLoginRequest request);
 }
+

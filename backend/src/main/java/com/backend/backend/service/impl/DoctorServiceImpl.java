@@ -14,7 +14,7 @@ import com.backend.backend.repository.RecordRepository;
 import com.backend.backend.service.BlockchainService;
 import com.backend.backend.service.DoctorService;
 import com.backend.backend.service.FileStorageService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
@@ -31,6 +30,19 @@ public class DoctorServiceImpl implements DoctorService {
     private final FileStorageService fileStorageService;
     private final BlockchainService blockchainService;
     private final PasswordEncoder passwordEncoder;
+
+    @Autowired
+    public DoctorServiceImpl(DoctorRepository doctorRepository,
+                             RecordRepository recordRepository,
+                             FileStorageService fileStorageService,
+                             BlockchainService blockchainService,
+                             PasswordEncoder passwordEncoder) {
+        this.doctorRepository = doctorRepository;
+        this.recordRepository = recordRepository;
+        this.fileStorageService = fileStorageService;
+        this.blockchainService = blockchainService;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     @Transactional
@@ -46,19 +58,19 @@ public class DoctorServiceImpl implements DoctorService {
 
         String validityHash = blockchainService.generateNodeHash("DrVerify", request.getEmail());
 
-        Doctor doctor = Doctor.builder()
-                .fullname(request.getFullname())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .licenseNumber(request.getLicenseNumber())
-                .regYear(request.getRegYear())
-                .medicalCouncil(request.getMedicalCouncil())
-                .specialization(request.getSpecialization())
-                .walletAddress(request.getWalletAddress())
-                .proofFilePath(proofFilePath)
-                .validityHash(validityHash)
-                .status(AppConstants.STATUS_AUTHORIZED)
-                .build();
+        Doctor doctor = new Doctor(
+                request.getFullname(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()),
+                request.getLicenseNumber(),
+                request.getSpecialization(),
+                request.getMedicalCouncil(),
+                request.getRegYear(),
+                request.getWalletAddress(),
+                proofFilePath,
+                validityHash,
+                AppConstants.STATUS_AUTHORIZED
+        );
 
         return doctorRepository.save(doctor);
     }

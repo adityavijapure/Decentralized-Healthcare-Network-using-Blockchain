@@ -10,3 +10,4 @@ public interface RecordService {
     String uploadRecord(String title, String email, MultipartFile file);
     void deleteRecord(Long id);
 }
+
