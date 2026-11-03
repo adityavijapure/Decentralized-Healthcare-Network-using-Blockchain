@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileUp, 
@@ -18,6 +19,11 @@ import {
 const HospitalDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
 
   // Simulated Hospital/Lab Identity Data
   const hospital = {
@@ -71,7 +77,7 @@ const HospitalDashboard = () => {
         </nav>
 
         <div className="p-4 border-t border-slate-700">
-          <button className="flex items-center gap-3 text-slate-400 hover:text-emerald-400 transition-colors w-full p-2">
+          <button onClick={handleLogout} className="flex items-center gap-3 text-slate-400 hover:text-emerald-400 transition-colors w-full p-2">
             <LogOut size={20} />
             {isSidebarOpen && <span className="text-sm font-semibold">Logout</span>}
           </button>

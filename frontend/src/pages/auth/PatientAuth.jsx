@@ -1,18 +1,34 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { ethers } from "ethers";
-import { UserIcon, ShieldCheckIcon, FingerPrintIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { 
+  User, 
+  ShieldCheck, 
+  Fingerprint, 
+  ArrowLeft, 
+  Lock, 
+  Sparkles, 
+  CheckCircle2, 
+  Wallet,
+  AlertCircle,
+  Stethoscope,
+  Building2,
+  FileText,
+  KeyRound,
+  ArrowRight
+} from "lucide-react";
 import InputField from "../../components/auth/InputField";
-import FileUpload from "../../components/auth/FileUpload"; // Added for Profile/Document upload
+import FileUpload from "../../components/auth/FileUpload";
 import { API_BASE_URL } from "../../config/api";
 
 export default function PatientAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasMetaMask, setHasMetaMask] = useState(false);
+  const [walletConnected, setWalletConnected] = useState("");
   
-  // Updated state to include profileImage
   const [formData, setFormData] = useState({ 
     fullname: "", 
     email: "", 
@@ -22,26 +38,40 @@ export default function PatientAuth() {
   
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      setHasMetaMask(true);
+      window.ethereum.request({ method: "eth_accounts" })
+        .then(accounts => {
+          if (accounts && accounts.length > 0) {
+            setWalletConnected(accounts[0]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   const handleAction = async () => {
     // --- 1. LOGIN LOGIC ---
     if (!isSignUp) {
+      if (!formData.email.trim() || !formData.password.trim()) {
+        return alert("Please enter your registered email and password.");
+      }
       setLoading(true);
       try {
         const response = await axios.post(`${API_BASE_URL}/api/auth/patient/login`, {
-          email: formData.email,
+          email: formData.email.trim(),
           password: formData.password
         });
 
-        localStorage.setItem("userEmail", formData.email);
+        localStorage.setItem("userEmail", formData.email.trim());
         localStorage.setItem("userFullname", response.data.fullname || "Patient User");
         localStorage.setItem("userRole", "Patient");
-        // Save profile image path if returned by backend
         localStorage.setItem("userAvatar", response.data.profileImagePath || "");
 
-        alert("Access Granted to HealthChain Node");
         navigate('/patient/dashboard');
       } catch (err) {
-        alert("Login failed: " + (err.response?.data || "Server unreachable"));
+        alert("Login failed: " + (err.response?.data || "Invalid credentials or backend offline."));
       } finally {
         setLoading(false);
       }
@@ -49,14 +79,17 @@ export default function PatientAuth() {
     }
 
     // --- 2. SIGNUP + BLOCKCHAIN LOGIC ---
+    if (!formData.fullname.trim() || !formData.email.trim() || !formData.password.trim()) {
+      return alert("Please fill in your name, email, and password.");
+    }
+
     if (!window.ethereum) {
-      alert("MetaMask not found! Please install the MetaMask browser extension and refresh.");
+      alert("MetaMask extension is required to anchor a decentralized patient identity on Ethereum. Please install MetaMask and try again.");
       return;
     }
 
     setLoading(true);
     try {
-      // 1. Explicitly prompt user to connect account in MetaMask
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       if (!accounts || accounts.length === 0) {
         alert("Please connect an active account in MetaMask.");
@@ -64,15 +97,14 @@ export default function PatientAuth() {
         return;
       }
 
-      // 2. BrowserProvider with "any" network tolerance
       const provider = new ethers.BrowserProvider(window.ethereum, "any");
       const signer = await provider.getSigner();
       const walletAddress = await signer.getAddress();
+      setWalletConnected(walletAddress);
 
-      // 3. Request cryptographic signature
       let signature;
       try {
-        signature = await signer.signMessage(`Registering Patient Node: ${formData.email}`);
+        signature = await signer.signMessage(`Registering Patient Node: ${formData.email.trim()}`);
       } catch (signErr) {
         if (
           signErr.code === 4001 || 
@@ -82,21 +114,13 @@ export default function PatientAuth() {
           alert("Signature rejected in MetaMask. Please approve the signature to initialize your patient account.");
           return;
         }
-        if (
-          signErr.code === "NETWORK_ERROR" || 
-          signErr.message?.toLowerCase().includes("could not detect network") ||
-          signErr.message?.toLowerCase().includes("network")
-        ) {
-          alert("MetaMask Network Error: MetaMask cannot connect to the currently selected network (such as offline Localhost 8545). Please switch MetaMask to Sepolia Testnet or Ethereum Mainnet.");
-          return;
-        }
-        throw signErr;
+        alert("MetaMask Signature Error: " + (signErr.message || "Approval cancelled."));
+        return;
       }
 
-      // 4. Form data preparation
       const data = new FormData();
-      data.append("fullname", formData.fullname);
-      data.append("email", formData.email);
+      data.append("fullname", formData.fullname.trim());
+      data.append("email", formData.email.trim());
       data.append("password", formData.password);
       data.append("walletAddress", walletAddress);
       data.append("signature", signature);
@@ -105,7 +129,6 @@ export default function PatientAuth() {
         data.append("profileImage", formData.profileImage);
       }
 
-      // 5. Submit to backend API
       try {
         await axios.post(`${API_BASE_URL}/api/auth/patient/signup`, data, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -120,107 +143,274 @@ export default function PatientAuth() {
         return;
       }
 
-      localStorage.setItem("userEmail", formData.email);
-      localStorage.setItem("userFullname", formData.fullname);
+      localStorage.setItem("userEmail", formData.email.trim());
+      localStorage.setItem("userFullname", formData.fullname.trim());
       localStorage.setItem("userRole", "Patient");
 
-      alert(`Node Initialized Successfully!`);
       navigate('/patient/dashboard');
 
     } catch (err) {
       console.error("Initialization failed:", err);
-      if (err.code === "NETWORK_ERROR" || err.message?.toLowerCase().includes("could not detect network")) {
-        alert("MetaMask Network Error: Please ensure MetaMask is connected to an active network (e.g. Sepolia or Ethereum Mainnet).");
-      } else {
-        alert("Initialization Error: " + (err.message || "Unknown error occurred."));
-      }
+      alert("Initialization Error: " + (err.message || "Unknown error occurred."));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans">
-      <motion.div 
-        layout // Smooth transition when expanding for file upload
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        className="w-full max-w-md bg-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-2xl overflow-y-auto max-h-[95vh]"
-      >
-        <button 
-          onClick={() => navigate('/')} 
-          className="mb-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-[0.2em]"
-        >
-          <ArrowLeftIcon className="w-4 h-4" /> Back to Selection
-        </button>
+    <div className="min-h-screen bg-[#030712] relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 font-sans selection:bg-teal-500/30">
+      
+      {/* Background Cyber Grid */}
+      <div className="absolute inset-0 cyber-grid opacity-25 pointer-events-none" />
+      <div className="cyber-glow w-[550px] h-[550px] bg-teal-500/15 top-[-10%] left-[-10%]" />
+      <div className="cyber-glow w-[500px] h-[500px] bg-blue-600/15 bottom-[-10%] right-[-10%]" />
+
+      <div className="relative z-10 w-full max-w-4xl">
         
-        <div className="text-center mb-10">
-          <div className="inline-flex p-3 bg-teal-500/20 rounded-2xl mb-4 text-teal-400 border border-teal-500/20">
-            <UserIcon className="w-8 h-8" />
+        {/* Top Bar: Back Link & Role Switcher */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+          <Link 
+            to="/login" 
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>All Portals</span>
+          </Link>
+
+          {/* Quick Role Switcher Pill Bar */}
+          <div className="flex items-center gap-1.5 p-1 rounded-full bg-slate-900/90 border border-white/10 backdrop-blur-xl">
+            <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center gap-1.5 shadow-sm">
+              <User className="w-3.5 h-3.5" />
+              <span>Patient</span>
+            </span>
+            <Link
+              to="/auth/doctor"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5"
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              <span>Doctor</span>
+            </Link>
+            <Link
+              to="/auth/hospital"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1.5"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Hospital</span>
+            </Link>
           </div>
-          <h1 className="text-2xl font-black text-white uppercase tracking-tighter">
-            Patient {isSignUp ? "Initialization" : "Login"}
-          </h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">
-            Secure Decentralized Health Node
-          </p>
         </div>
 
-        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-          {isSignUp && (
-            <>
+        {/* Auth Main Card */}
+        <motion.div 
+          layout
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className="rounded-[2.5rem] bg-slate-900/70 border border-teal-500/30 shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col md:flex-row"
+        >
+          {/* Left Visual Panel */}
+          <div className="md:w-5/12 bg-gradient-to-br from-teal-700 via-emerald-800 to-slate-950 p-8 lg:p-10 flex flex-col justify-between text-white relative">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-400/20 border border-teal-400/30 text-teal-200 text-[10px] font-bold uppercase tracking-wider mb-6">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Self-Sovereign Identity</span>
+              </div>
+
+              <h2 className="text-3xl font-extrabold tracking-tight leading-tight">
+                Patient <br />
+                <span className="text-teal-200">Health Record</span> <br />
+                Portal
+              </h2>
+
+              <p className="text-xs text-teal-100/90 mt-4 leading-relaxed">
+                Take full control of your lifetime diagnostic records. Grant instant, secure access to verified physicians and revoke permissions anytime via smart contracts.
+              </p>
+
+              {/* Benefit Bullets */}
+              <div className="space-y-3 mt-8 pt-6 border-t border-white/10 text-xs">
+                <div className="flex items-center gap-2.5 text-teal-100">
+                  <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
+                  <span>AES-256 Encrypted Cloud Storage</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-teal-100">
+                  <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
+                  <span>Permanent Blockchain Audit History</span>
+                </div>
+                <div className="flex items-center gap-2.5 text-teal-100">
+                  <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
+                  <span>Zero Data Selling or Tracking</span>
+                </div>
+              </div>
+            </div>
+
+            {/* MetaMask Status Pill */}
+            <div className="mt-8 pt-4 border-t border-white/10">
+              <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 backdrop-blur-md flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${hasMetaMask ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
+                    {hasMetaMask ? "MetaMask Detected" : "Browser Wallet Notice"}
+                  </p>
+                  <p className="text-xs font-semibold text-white truncate">
+                    {walletConnected 
+                      ? `${walletConnected.slice(0, 6)}...${walletConnected.slice(-4)}`
+                      : hasMetaMask 
+                        ? "Ready for On-Chain Signing" 
+                        : "Extension recommended for Signup"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Form Panel */}
+          <div className="flex-1 p-8 lg:p-12 flex flex-col justify-center">
+            
+            {/* Segmented Sign In vs Sign Up Switcher */}
+            <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-slate-950/80 border border-white/10 mb-8">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(false)}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
+                  !isSignUp
+                    ? "bg-gradient-to-r from-teal-500 to-emerald-600 text-slate-950 shadow-md shadow-teal-500/20"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSignUp(true)}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
+                  isSignUp
+                    ? "bg-gradient-to-r from-teal-500 to-emerald-600 text-slate-950 shadow-md shadow-teal-500/20"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Create Node</span>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-white tracking-tight">
+                {isSignUp ? "Register Patient Node" : "Welcome Back"}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {isSignUp 
+                  ? "Enter your credentials to anchor your patient identity onto the ledger." 
+                  : "Sign in with your verified credentials to access medical records."}
+              </p>
+            </div>
+
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleAction(); }}>
+              <AnimatePresence mode="wait">
+                {isSignUp && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    <InputField 
+                      label="Full Legal Name" 
+                      placeholder="e.g. Jane Margaret Doe"
+                      value={formData.fullname}
+                      onChange={(e) => setFormData({...formData, fullname: e.target.value})}
+                      icon={<User className="w-4 h-4" />} 
+                      required
+                    />
+
+                    <FileUpload 
+                      label="Profile Picture (Optional)"
+                      hint="JPG/PNG for identity verification"
+                      onChange={(file) => setFormData({...formData, profileImage: file})}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <InputField 
-                label="Full Legal Name" 
-                placeholder="e.g. Jane Margaret Doe"
-                value={formData.fullname}
-                onChange={(e) => setFormData({...formData, fullname: e.target.value})}
-                icon={<UserIcon className="w-5 h-5" />} 
+                label="Registered Email" 
+                placeholder="patient@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                type="email" 
+                icon={<Fingerprint className="w-4 h-4" />} 
+                required
               />
-              {/* Added the FileUpload for Profile Picture */}
-              <FileUpload 
-                label="Profile Picture (Optional)"
-                hint="Used for on-chain identity (JPG/PNG)"
-                onChange={(file) => setFormData({...formData, profileImage: file})}
+
+              <InputField 
+                label="Secure Access Key / Password" 
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                type="password" 
+                icon={<Lock className="w-4 h-4" />} 
+                helperText={isSignUp ? "Minimum 6 characters" : ""}
+                required
               />
-            </>
-          )}
 
-          <InputField 
-            label="Network Email" 
-            placeholder="name@example.com"
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            type="email" 
-            icon={<FingerPrintIcon className="w-5 h-5" />} 
-          />
-          <InputField 
-            label="Secure Key" 
-            placeholder="••••••••"
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
-            type="password" 
-            icon={<ShieldCheckIcon className="w-5 h-5" />} 
-          />
-          
-          <button 
-            onClick={handleAction} 
-            disabled={loading}
-            className="w-full py-5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] mt-4 disabled:opacity-50 shadow-xl shadow-teal-500/20 active:scale-[0.98]"
-          >
-            {loading ? "Anchoring to Blockchain..." : (isSignUp ? "Initialize Node" : "Access Portal")}
-          </button>
-        </form>
+              {!isSignUp && (
+                <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer hover:text-slate-300">
+                    <input type="checkbox" className="w-4 h-4 rounded accent-teal-500 bg-slate-900 border-white/10" />
+                    <span>Remember this device</span>
+                  </label>
+                  <span className="text-teal-400 hover:text-teal-300 cursor-pointer font-medium">
+                    Lost key?
+                  </span>
+                </div>
+              )}
 
-        <p className="mt-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">
-          {isSignUp ? "Existing Patient?" : "New to the Network?"} 
-          <button 
-            onClick={() => setIsSignUp(!isSignUp)} 
-            className="ml-2 text-teal-400 hover:text-teal-300 underline underline-offset-8 transition-colors"
-          >
-            {isSignUp ? "Sign In" : "Join Now"}
-          </button>
-        </p>
-      </motion.div>
+              {isSignUp && (
+                <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-[11px] leading-relaxed flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Node initialization prompts a free MetaMask signature verification to prove Ethereum identity.</span>
+                </div>
+              )}
+              
+              <button 
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 mt-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-slate-950 font-black rounded-xl transition-all uppercase tracking-wider text-xs shadow-xl shadow-teal-500/25 active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <span>Anchoring to Network...</span>
+                ) : isSignUp ? (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    <span>Initialize Patient Node</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Access Patient Portal</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-white/5 text-center">
+              <button 
+                type="button" 
+                onClick={() => setIsSignUp(!isSignUp)} 
+                className="text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                {isSignUp ? "Already anchored on HealthChain? " : "New to the decentralized network? "}
+                <span className="text-teal-400 font-bold underline ml-1">
+                  {isSignUp ? "Sign In" : "Register Node"}
+                </span>
+              </button>
+            </div>
+
+          </div>
+        </motion.div>
+
+      </div>
     </div>
   );
 }

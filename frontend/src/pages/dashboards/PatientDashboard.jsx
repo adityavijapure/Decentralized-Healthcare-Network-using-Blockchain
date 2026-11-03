@@ -49,7 +49,7 @@ const PatientDashboard = () => {
   // --- LOGOUT LOGIC ---
   const handleLogout = () => {
     localStorage.clear(); // Wipe session
-    navigate('/patient/auth'); // Redirect to Login
+    navigate('/login');
   };
 
   // --- UPLOAD LOGIC ---

@@ -80,7 +80,7 @@ const DoctorDashboard = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate('/doctor/'); // Redirect to login
+    navigate('/login');
   };
 
   const handleView = (record) => {

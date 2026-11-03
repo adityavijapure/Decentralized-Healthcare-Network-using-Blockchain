@@ -1,35 +1,39 @@
-package com.backend.backend.model;
+package com.backend.backend.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "medical_records")
-@Data // Generates getters, setters, and toString automatically via Lombok
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MedicalRecord {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String title;
-    
-    // This stores the IPFS/Blockchain reference hash
+
+    @Column(nullable = false)
     private String fileHash;
 
     private String date;
 
-    // This links the record to the patient who uploaded it
+    @Column(nullable = false)
     private String patientEmail;
-
-    // Default constructor for Hibernate
-    public MedicalRecord() {}
 
     public MedicalRecord(String title, String fileHash, String patientEmail) {
         this.title = title;
         this.fileHash = fileHash;
         this.patientEmail = patientEmail;
-        this.date = LocalDate.now().toString(); // Automatically sets current date
+        this.date = LocalDate.now().toString();
     }
 }

@@ -1,37 +1,30 @@
 package com.backend.backend.controller;
 
-import com.backend.backend.model.Doctor;
-import com.backend.backend.repository.DoctorRepository;
-import com.backend.backend.model.MedicalRecord; // Ensure you have this
-import com.backend.backend.repository.RecordRepository; // Ensure you have this
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import com.backend.backend.dto.request.AccessRequestDto;
+import com.backend.backend.dto.request.DoctorLoginRequest;
+import com.backend.backend.dto.request.DoctorSignupRequest;
+import com.backend.backend.dto.response.AuthResponse;
+import com.backend.backend.entity.Doctor;
+import com.backend.backend.entity.MedicalRecord;
+import com.backend.backend.service.DoctorService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.Map;
+
 import java.util.List;
-import java.util.UUID;
-import java.util.HashMap;
 
 @RestController
-// Changed to /api/doctor to cover both Auth and Dashboard actions
-@RequestMapping("/api/doctor") 
+@RequestMapping("/api/doctor")
 @CrossOrigin(origins = "http://localhost:5173")
+@RequiredArgsConstructor
 public class DoctorAuthController {
 
-    @Autowired
-    private DoctorRepository doctorRepository;
-
-    @Autowired
-    private RecordRepository recordRepository;
-
-    @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    private final DoctorService doctorService;
 
     @PostMapping("/signup")
-    public ResponseEntity<?> register(
+    public ResponseEntity<Doctor> register(
             @RequestParam("email") String email,
             @RequestParam("password") String password,
             @RequestParam("fullname") String fullname,
@@ -42,70 +35,36 @@ public class DoctorAuthController {
             @RequestParam("walletAddress") String walletAddress,
             @RequestParam(value = "proofFile", required = false) MultipartFile proofFile) {
 
-        if (doctorRepository.findByEmail(email).isPresent()) {
-            return ResponseEntity.badRequest().body("Email already registered!");
-        }
+        DoctorSignupRequest request = DoctorSignupRequest.builder()
+                .email(email)
+                .password(password)
+                .fullname(fullname)
+                .licenseNumber(licenseNumber)
+                .regYear(regYear)
+                .medicalCouncil(medicalCouncil)
+                .specialization(specialization)
+                .walletAddress(walletAddress)
+                .build();
 
-        Doctor doctor = new Doctor();
-        doctor.setEmail(email);
-        doctor.setFullname(fullname);
-        doctor.setPassword(passwordEncoder.encode(password));
-        doctor.setLicenseNumber(licenseNumber);
-        doctor.setRegYear(regYear);
-        doctor.setMedicalCouncil(medicalCouncil);
-        doctor.setSpecialization(specialization);
-        
-        String simulatedHash = "DrVerify-" + UUID.randomUUID().toString().substring(0, 20);
-        doctor.setValidityHash(simulatedHash);
-        doctor.setStatus("AUTHORIZED_NODE");
-
-        return ResponseEntity.ok(doctorRepository.save(doctor));
+        Doctor doctor = doctorService.register(request, proofFile);
+        return ResponseEntity.ok(doctor);
     }
 
-   @PostMapping("/login")
-public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
-    String email = credentials.get("email");
-    String password = credentials.get("password");
-
-    // 1. Find the doctor by email
-    java.util.Optional<Doctor> doctorOpt = doctorRepository.findByEmail(email);
-
-    // 2. Check if doctor exists and password matches
-    if (doctorOpt.isPresent() && passwordEncoder.matches(password, doctorOpt.get().getPassword())) {
-        Doctor doctor = doctorOpt.get();
-        
-        // 3. Create a clean response map for React
-        Map<String, Object> response = new HashMap<>();
-        response.put("email", doctor.getEmail());
-        response.put("fullname", doctor.getFullname()); // FIXED: Added 'get' and capitalized 'F'
-        response.put("specialization", doctor.getSpecialization());
-        response.put("status", doctor.getStatus());
-        
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody DoctorLoginRequest request) {
+        AuthResponse response = doctorService.login(request);
         return ResponseEntity.ok(response);
     }
 
-    // 4. Return error if authentication fails
-    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Credentials");
-}
-    // --- DASHBOARD ENDPOINTS ---
-
-    // 1. Fetch records (Simulated: showing all records for now)
     @GetMapping("/records/{email}")
-    public List<MedicalRecord> getAccessibleRecords(@PathVariable String email) {
-        // In a real blockchain, you'd filter by access rights. 
-        // For now, we return all records to check if the connection works.
-        return recordRepository.findAll();
+    public ResponseEntity<List<MedicalRecord>> getAccessibleRecords(@PathVariable String email) {
+        List<MedicalRecord> records = doctorService.getAccessibleRecords(email);
+        return ResponseEntity.ok(records);
     }
 
-    // 2. Handle Access Requests
     @PostMapping("/request-access")
-    public ResponseEntity<?> requestAccess(@RequestBody Map<String, String> request) {
-        String patientEmail = request.get("patientEmail");
-        String doctorEmail = request.get("doctorEmail");
-        
-        System.out.println("Access Request broadcasted to Blockchain for Patient: " + patientEmail);
-        
-        // Simulating a successful blockchain broadcast
-        return ResponseEntity.ok("Request broadcasted to the network.");
+    public ResponseEntity<String> requestAccess(@Valid @RequestBody AccessRequestDto request) {
+        String result = doctorService.requestAccess(request);
+        return ResponseEntity.ok(result);
     }
 }

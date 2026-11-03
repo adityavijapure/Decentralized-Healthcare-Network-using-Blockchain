@@ -1,28 +1,26 @@
 package com.backend.backend.controller;
 
-import com.backend.backend.model.PatientRequest;
-import com.backend.backend.repository.PatientRepository; // You'll need to create this Interface
-import com.backend.backend.util.HashUtil;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import com.backend.backend.dto.request.PatientLoginRequest;
+import com.backend.backend.dto.request.PatientSignupRequest;
+import com.backend.backend.dto.response.AuthResponse;
+import com.backend.backend.entity.Patient;
+import com.backend.backend.service.PatientService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import org.springframework.web.multipart.MultipartFile;
-import java.util.Map;
-import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/auth/patient")
 @CrossOrigin(origins = "http://localhost:5173")
+@RequiredArgsConstructor
 public class PatientController {
 
-    @Autowired
-    private PatientRepository patientRepository;
+    private final PatientService patientService;
 
     @PostMapping(value = "/signup", consumes = { "multipart/form-data", "application/x-www-form-urlencoded" })
-    public ResponseEntity<?> registerMultipart(
+    public ResponseEntity<Patient> registerMultipart(
             @RequestParam("email") String email,
             @RequestParam("password") String password,
             @RequestParam("fullname") String fullname,
@@ -30,44 +28,27 @@ public class PatientController {
             @RequestParam(value = "signature", required = false) String signature,
             @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
 
-        if (patientRepository.findByEmail(email).isPresent()) {
-            return ResponseEntity.badRequest().body("Email already exists!");
-        }
-        PatientRequest patient = new PatientRequest();
-        patient.setEmail(email);
-        patient.setFullname(fullname);
-        patient.setWalletAddress(walletAddress);
-        patient.setPassword(HashUtil.hashPassword(password));
-        return ResponseEntity.ok(patientRepository.save(patient));
+        PatientSignupRequest request = PatientSignupRequest.builder()
+                .email(email)
+                .password(password)
+                .fullname(fullname)
+                .walletAddress(walletAddress)
+                .signature(signature)
+                .build();
+
+        Patient saved = patientService.registerMultipart(request, profileImage);
+        return ResponseEntity.ok(saved);
     }
 
     @PostMapping(value = "/signup", consumes = "application/json")
-    public ResponseEntity<?> registerJson(@RequestBody PatientRequest patient) {
-        if (patientRepository.findByEmail(patient.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest().body("Email already exists!");
-        }
-        patient.setPassword(HashUtil.hashPassword(patient.getPassword()));
-        return ResponseEntity.ok(patientRepository.save(patient));
+    public ResponseEntity<Patient> registerJson(@Valid @RequestBody PatientSignupRequest request) {
+        Patient saved = patientService.registerJson(request);
+        return ResponseEntity.ok(saved);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
-        String email = credentials.get("email");
-        String password = credentials.get("password");
-        if (email == null || password == null) {
-            return ResponseEntity.badRequest().body("Email and password required");
-        }
-        String hashedInput = HashUtil.hashPassword(password);
-
-        return patientRepository.findByEmail(email)
-            .filter(p -> p.getPassword().equals(hashedInput))
-            .map(p -> {
-                Map<String, Object> resp = new HashMap<>();
-                resp.put("email", p.getEmail());
-                resp.put("fullname", p.getFullname());
-                resp.put("role", "Patient");
-                return ResponseEntity.ok((Object) resp);
-            })
-            .orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Email or Password"));
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody PatientLoginRequest request) {
+        AuthResponse response = patientService.login(request);
+        return ResponseEntity.ok(response);
     }
 }

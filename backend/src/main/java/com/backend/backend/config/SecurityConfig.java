@@ -4,11 +4,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.List;
 
@@ -17,42 +18,39 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public BCryptPasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); 
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http
-        .csrf(AbstractHttpConfigurer::disable) // Required for Postman/React POST requests
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/api/doctor/**").permitAll() 
-            .requestMatchers("/api/auth/**").permitAll()
-            .requestMatchers("/api/hospital/**").permitAll()
-            .requestMatchers("/api/records/**").permitAll()
-            .requestMatchers("/uploads/**").permitAll()
-            .requestMatchers("/error").permitAll()
-            .anyRequest().authenticated()
-        );
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/health", "/error").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/doctor/**").permitAll()
+                .requestMatchers("/api/hospital/**").permitAll()
+                .requestMatchers("/api/records/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()
+                .anyRequest().authenticated()
+            );
 
-    return http.build();
-}
+        return http.build();
+    }
 
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        
-        // Ensure this matches your Vite frontend port
-        config.setAllowedOrigins(List.of("http://localhost:5173")); 
-        
+        config.setAllowedOriginPatterns(List.of("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:*"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Applies these rules to every single endpoint in the app
-        source.registerCorsConfiguration("/**", config); 
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }
