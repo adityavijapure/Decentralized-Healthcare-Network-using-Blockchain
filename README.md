@@ -329,13 +329,16 @@ Open your browser and navigate to: **`http://localhost:5173`**
 ## 👨‍💻 Author & Maintainer
 
 **Aditya Vijapure**  
+- **Role**: Lead System Architect & Full-Stack Web3 Developer
 - **GitHub**: [@adityavijapure](https://github.com/adityavijapure)  
 - **Email**: [adityavijapure0508@gmail.com](mailto:adityavijapure0508@gmail.com)  
-- **Project**: *Decentralized Healthcare Network using Blockchain*
+- **Repository**: [Decentralized-Healthcare-Network-using-Blockchain](https://github.com/adityavijapure/Decentralized-Healthcare-Network-using-Blockchain)
 
 ---
 
-## 📄 License
+## ⚖️ Copyright & License
 
-This project is licensed under the **MIT License** — feel free to explore, fork, and contribute!
+Copyright &copy; 2026 **Aditya Vijapure**. All Rights Reserved.
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for complete details.
 

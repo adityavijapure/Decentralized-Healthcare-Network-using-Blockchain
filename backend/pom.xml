@@ -16,6 +16,29 @@
     <name>backend</name>
     <description>Healthcare Blockchain Backend for HealthChain</description>
 
+    <developers>
+        <developer>
+            <id>adityavijapure</id>
+            <name>Aditya Vijapure</name>
+            <email>adityavijapure0508@gmail.com</email>
+            <url>https://github.com/adityavijapure</url>
+            <roles>
+                <role>Lead Architect</role>
+                <role>Core Developer</role>
+            </roles>
+            <timezone>+5:30</timezone>
+        </developer>
+    </developers>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+            <comments>Copyright (c) 2026 Aditya Vijapure</comments>
+        </license>
+    </licenses>
+
     <properties>
         <java.version>17</java.version>
     </properties>

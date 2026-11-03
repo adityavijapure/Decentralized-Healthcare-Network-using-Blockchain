@@ -1,7 +1,11 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "HealthChain — Decentralized Healthcare Network Frontend",
+  "author": "Aditya Vijapure <adityavijapure0508@gmail.com> (https://github.com/adityavijapure)",
+  "license": "MIT",
+  "homepage": "https://github.com/adityavijapure/Decentralized-Healthcare-Network-using-Blockchain",
   "type": "module",
   "scripts": {
     "dev": "vite",

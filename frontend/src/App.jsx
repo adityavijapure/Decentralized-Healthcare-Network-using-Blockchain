@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Components
 import Navbar from "./components/Navbar.jsx";
+import Footer from "./components/Footer.jsx";
 import Home from "./components/Home.jsx";
 import Contact from "./components/contact.jsx";
 
@@ -57,6 +58,9 @@ function App() {
         {/* Fallback Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* Global Footer (automatically hidden on dashboards) */}
+      <Footer />
     </BrowserRouter>
   );
 }
