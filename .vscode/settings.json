@@ -1,5 +1,24 @@
 {
+  "java.jdt.ls.java.home": "C:\\Users\\shubh\\.jdks\\ms-21.0.7",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "C:\\Users\\shubh\\.jdks\\ms-21.0.7",
+      "default": true
+    },
+    {
+      "name": "JavaSE-17",
+      "path": "C:\\Users\\shubh\\.jdks\\ms-21.0.7"
+    }
+  ],
   "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.maven.enabled": true,
+  "maven.terminal.customEnv": [
+    {
+      "environmentVariable": "JAVA_HOME",
+      "value": "C:\\Users\\shubh\\.jdks\\ms-21.0.7"
+    }
+  ],
   "code-runner.runInTerminal": true,
   "code-runner.executorMap": {
     "java": "cd $workspaceRoot/backend && .\\mvnw.cmd spring-boot:run"
