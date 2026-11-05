@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
+import AuthStatusDialog from "../../components/auth/AuthStatusDialog";
 import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function DoctorAuth() {
@@ -39,6 +40,14 @@ export default function DoctorAuth() {
     proofFile: null
   });
 
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+    actionText: ""
+  });
+
   const toggleMode = (signUp) => {
     setIsSignUp(signUp);
     setStep(1);
@@ -48,7 +57,14 @@ export default function DoctorAuth() {
     // --- 1. DOCTOR LOGIN (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
-        return alert("Please enter both your registered doctor email and password.");
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Missing Doctor Credentials",
+          message: "Please enter your doctor email and access password to sign in.",
+          actionText: "Try Again"
+        });
+        return;
       }
       setLoading(true);
       try {
@@ -66,9 +82,27 @@ export default function DoctorAuth() {
         localStorage.setItem("userSpecialization", data.specialization || "");
         localStorage.setItem("userRole", "Doctor");
 
-        navigate('/doctor/dashboard');
+        setDialog({
+          isOpen: true,
+          type: "success",
+          title: "Doctor Login Successful!",
+          message: `Welcome back, ${data.fullname || "Doctor"}! Your clinical JWT session has been authenticated. Redirecting to your medical consultation console...`,
+          actionText: "Opening Console"
+        });
+
+        setTimeout(() => {
+          navigate('/doctor/dashboard');
+        }, 1300);
+
       } catch (err) {
-        alert("Doctor Login Failed: " + (err.response?.data?.message || err.response?.data || "Check Credentials or verify backend connectivity."));
+        const msg = err.response?.data?.message || err.response?.data || "Check your credentials or verify backend connectivity.";
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Doctor Access Denied",
+          message: typeof msg === "string" ? msg : "Failed to authenticate doctor account.",
+          actionText: "Dismiss"
+        });
       } finally {
         setLoading(false);
       }
@@ -78,7 +112,14 @@ export default function DoctorAuth() {
     // --- 2. SIGNUP PROGRESSION (STEP 1) ---
     if (step === 1) {
       if (!formData.email.trim() || !formData.password.trim() || !formData.fullname.trim()) {
-        return alert("Please complete your name, email, and password.");
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Incomplete Profile",
+          message: "Please enter your full doctor name, clinical email, and secure password.",
+          actionText: "Complete Step 1"
+        });
+        return;
       }
       setStep(2);
       return;
@@ -86,10 +127,24 @@ export default function DoctorAuth() {
 
     // --- 3. MEDICAL CREDENTIALS UPLOAD & DATABASE STORAGE (STEP 2) ---
     if (!formData.licenseNumber.trim() || !formData.specialization.trim()) {
-      return alert("Please complete your medical license number and clinical specialization.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Clinical Credentials Required",
+        message: "Please complete your official medical license number and specialty field.",
+        actionText: "Review Fields"
+      });
+      return;
     }
     if (!formData.proofFile) {
-      return alert("Medical qualification document / photo proof is mandatory for clinical verification.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Medical License Proof Required",
+        message: "Medical qualification document or registration certificate is required for practitioner verification.",
+        actionText: "Upload Document"
+      });
+      return;
     }
 
     setLoading(true);
@@ -122,15 +177,35 @@ export default function DoctorAuth() {
       localStorage.setItem("userSpecialization", formData.specialization.trim());
       localStorage.setItem("userRole", "Doctor");
 
-      navigate('/doctor/dashboard');
+      setDialog({
+        isOpen: true,
+        type: "success",
+        title: "Doctor Registered Successfully!",
+        message: `Welcome to HealthChain, ${formData.fullname.trim()}! Your practitioner node has been authorized in Neon PostgreSQL. Generating your clinical session...`,
+        actionText: "Entering Console"
+      });
+
+      setTimeout(() => {
+        navigate('/doctor/dashboard');
+      }, 1500);
 
     } catch (apiErr) {
+      let serverMsg = "Signup failed on database. Please verify backend is running.";
       if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
-      } else {
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on database";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        serverMsg = `Backend Server Offline: Cannot connect to ${API_BASE_URL}.`;
+      } else if (apiErr.response?.data?.message) {
+        serverMsg = apiErr.response.data.message;
+      } else if (typeof apiErr.response?.data === "string") {
+        serverMsg = apiErr.response.data;
       }
+
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Practitioner Registration Error",
+        message: serverMsg,
+        actionText: "Review Details"
+      });
     } finally {
       setLoading(false);
     }
@@ -139,6 +214,17 @@ export default function DoctorAuth() {
   return (
     <div className="min-h-screen bg-[#030712] relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 font-sans selection:bg-blue-500/30">
       
+      {/* Animated Dialog Box */}
+      <AuthStatusDialog
+        isOpen={dialog.isOpen}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        role="Doctor"
+        actionText={dialog.actionText}
+        onClose={() => setDialog({ ...dialog, isOpen: false })}
+      />
+
       {/* Background Cyber Grid */}
       <div className="absolute inset-0 cyber-grid opacity-25 pointer-events-none" />
       <div className="cyber-glow w-[550px] h-[550px] bg-blue-600/20 top-[-10%] left-[-10%]" />

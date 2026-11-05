@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
+import AuthStatusDialog from "../../components/auth/AuthStatusDialog";
 import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function PatientAuth() {
@@ -30,6 +31,14 @@ export default function PatientAuth() {
     password: "",
     profileImage: null 
   });
+
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+    actionText: ""
+  });
   
   const navigate = useNavigate();
 
@@ -37,7 +46,14 @@ export default function PatientAuth() {
     // --- 1. LOGIN LOGIC (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
-        return alert("Please enter your registered email and password.");
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Missing Credentials",
+          message: "Please enter your registered email address and password to continue.",
+          actionText: "Try Again"
+        });
+        return;
       }
       setLoading(true);
       try {
@@ -47,7 +63,6 @@ export default function PatientAuth() {
         });
 
         const data = response.data;
-        // Store JWT Token & User State
         if (data.token) {
           setAuthToken(data.token);
         }
@@ -56,9 +71,28 @@ export default function PatientAuth() {
         localStorage.setItem("userRole", "Patient");
         localStorage.setItem("userAvatar", data.profileImagePath || "");
 
-        navigate('/patient/dashboard');
+        // Show animated success dialog
+        setDialog({
+          isOpen: true,
+          type: "success",
+          title: "Login Successful!",
+          message: `Welcome back, ${data.fullname || "Patient"}! Your JWT session is verified. Redirecting to your medical dashboard...`,
+          actionText: "Redirecting Now"
+        });
+
+        setTimeout(() => {
+          navigate('/patient/dashboard');
+        }, 1300);
+
       } catch (err) {
-        alert("Login failed: " + (err.response?.data?.message || err.response?.data || "Invalid credentials or backend offline."));
+        const msg = err.response?.data?.message || err.response?.data || "Invalid credentials or backend server offline.";
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Authentication Failed",
+          message: typeof msg === "string" ? msg : "Check your credentials and try again.",
+          actionText: "Dismiss"
+        });
       } finally {
         setLoading(false);
       }
@@ -67,7 +101,14 @@ export default function PatientAuth() {
 
     // --- 2. SIGNUP LOGIC (STORED IN DATABASE) ---
     if (!formData.fullname.trim() || !formData.email.trim() || !formData.password.trim()) {
-      return alert("Please fill in your name, email, and password.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Required Fields Missing",
+        message: "Please fill in your full legal name, email, and a secure password.",
+        actionText: "Complete Form"
+      });
+      return;
     }
 
     setLoading(true);
@@ -98,15 +139,36 @@ export default function PatientAuth() {
       localStorage.setItem("userFullname", formData.fullname.trim());
       localStorage.setItem("userRole", "Patient");
 
-      navigate('/patient/dashboard');
+      // Show animated success dialog
+      setDialog({
+        isOpen: true,
+        type: "success",
+        title: "Registration Successful!",
+        message: `Welcome to HealthChain, ${formData.fullname.trim()}! Your account has been registered in Neon PostgreSQL. Entering your dashboard...`,
+        actionText: "Entering Dashboard"
+      });
+
+      setTimeout(() => {
+        navigate('/patient/dashboard');
+      }, 1500);
 
     } catch (apiErr) {
+      let serverMsg = "Signup failed on database. Please verify backend is running.";
       if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
-      } else {
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on database";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        serverMsg = `Backend Server Offline: Cannot connect to ${API_BASE_URL}.`;
+      } else if (apiErr.response?.data?.message) {
+        serverMsg = apiErr.response.data.message;
+      } else if (typeof apiErr.response?.data === "string") {
+        serverMsg = apiErr.response.data;
       }
+
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Registration Error",
+        message: serverMsg,
+        actionText: "Review Details"
+      });
     } finally {
       setLoading(false);
     }
@@ -115,6 +177,17 @@ export default function PatientAuth() {
   return (
     <div className="min-h-screen bg-[#030712] relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 font-sans selection:bg-teal-500/30">
       
+      {/* Animated Dialog Box */}
+      <AuthStatusDialog
+        isOpen={dialog.isOpen}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        role="Patient"
+        actionText={dialog.actionText}
+        onClose={() => setDialog({ ...dialog, isOpen: false })}
+      />
+
       {/* Background Cyber Grid */}
       <div className="absolute inset-0 cyber-grid opacity-25 pointer-events-none" />
       <div className="cyber-glow w-[550px] h-[550px] bg-teal-500/15 top-[-10%] left-[-10%]" />

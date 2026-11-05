@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
+import AuthStatusDialog from "../../components/auth/AuthStatusDialog";
 import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function HospitalAuth() {
@@ -39,6 +40,14 @@ export default function HospitalAuth() {
     isCompliant: false
   });
 
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+    actionText: ""
+  });
+
   const toggleMode = (signUp) => {
     setIsSignUp(signUp);
     setFormData(prev => ({ 
@@ -53,7 +62,14 @@ export default function HospitalAuth() {
     // --- 1. HOSPITAL LOGIN (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
-        return alert("Please enter both admin email and password.");
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Missing Administrator Credentials",
+          message: "Please enter your registered institution email and password.",
+          actionText: "Try Again"
+        });
+        return;
       }
       setLoading(true);
       try {
@@ -71,9 +87,27 @@ export default function HospitalAuth() {
         localStorage.setItem("userRole", "Hospital");
         if (data.logo) localStorage.setItem("hospitalLogo", data.logo); 
 
-        navigate('/hospital/dashboard');
+        setDialog({
+          isOpen: true,
+          type: "success",
+          title: "Hospital Login Successful!",
+          message: `Welcome back, ${data.hospitalName || "Institution Admin"}! Your facility JWT token has been verified. Redirecting to diagnostic lab management...`,
+          actionText: "Entering Console"
+        });
+
+        setTimeout(() => {
+          navigate('/hospital/dashboard');
+        }, 1300);
+
       } catch (err) {
-        alert("Access Denied: " + (err.response?.data?.message || err.response?.data || "Check Credentials or verify backend is online."));
+        const msg = err.response?.data?.message || err.response?.data || "Check Credentials or verify backend is online.";
+        setDialog({
+          isOpen: true,
+          type: "error",
+          title: "Institutional Access Denied",
+          message: typeof msg === "string" ? msg : "Failed to authenticate hospital account.",
+          actionText: "Dismiss"
+        });
       } finally {
         setLoading(false);
       }
@@ -82,14 +116,35 @@ export default function HospitalAuth() {
 
     // --- 2. HOSPITAL SIGNUP (STORED IN DATABASE) ---
     if (!formData.email.trim() || !formData.password.trim() || !formData.hospitalName.trim() || !formData.licenseNumber.trim()) {
-      return alert("Please fill in the required hospital information.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Required Information Missing",
+        message: "Please fill in the hospital name, administrative email, password, and clinical license number.",
+        actionText: "Complete Form"
+      });
+      return;
     }
 
     if (!formData.regCert) {
-      return alert("STRICT REQUIREMENT: Government Registration Certificate is mandatory.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Clinical License Required",
+        message: "Official Government Registration Certificate is mandatory for clinical onboarding.",
+        actionText: "Upload Certificate"
+      });
+      return;
     }
     if (!formData.isCompliant) {
-      return alert("LEGAL REQUIREMENT: You must confirm the institutional accuracy policy.");
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Policy Agreement Required",
+        message: "Please agree to the institutional verification and clinical data compliance policy.",
+        actionText: "Confirm Policy"
+      });
+      return;
     }
 
     setLoading(true);
@@ -121,14 +176,35 @@ export default function HospitalAuth() {
       localStorage.setItem("userFullname", formData.hospitalName.trim());
       localStorage.setItem("userRole", "Hospital");
 
-      navigate('/hospital/dashboard');
+      setDialog({
+        isOpen: true,
+        type: "success",
+        title: "Institution Registered Successfully!",
+        message: `Welcome to HealthChain! ${formData.hospitalName.trim()} has been registered and verified in Neon PostgreSQL. Entering management dashboard...`,
+        actionText: "Entering Console"
+      });
+
+      setTimeout(() => {
+        navigate('/hospital/dashboard');
+      }, 1500);
+
     } catch (apiErr) {
+      let serverMsg = "Onboarding failed on database. Please verify backend is running.";
       if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
-      } else {
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Onboarding failed on database";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+        serverMsg = `Backend Server Offline: Cannot connect to ${API_BASE_URL}.`;
+      } else if (apiErr.response?.data?.message) {
+        serverMsg = apiErr.response.data.message;
+      } else if (typeof apiErr.response?.data === "string") {
+        serverMsg = apiErr.response.data;
       }
+
+      setDialog({
+        isOpen: true,
+        type: "error",
+        title: "Institutional Registration Error",
+        message: serverMsg,
+        actionText: "Review Details"
+      });
     } finally {
       setLoading(false);
     }
@@ -137,6 +213,17 @@ export default function HospitalAuth() {
   return (
     <div className="min-h-screen bg-[#030712] relative overflow-hidden flex flex-col justify-center items-center py-12 px-4 sm:px-6 font-sans selection:bg-purple-500/30">
       
+      {/* Animated Dialog Box */}
+      <AuthStatusDialog
+        isOpen={dialog.isOpen}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        role="Hospital"
+        actionText={dialog.actionText}
+        onClose={() => setDialog({ ...dialog, isOpen: false })}
+      />
+
       {/* Background Cyber Grid */}
       <div className="absolute inset-0 cyber-grid opacity-25 pointer-events-none" />
       <div className="cyber-glow w-[550px] h-[550px] bg-purple-600/20 top-[-10%] right-[-10%]" />
