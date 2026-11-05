@@ -1,4 +1,5 @@
 // Centralized Environment & API Configuration for HealthChain Frontend
+import axios from "axios";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8085";
 export const BLOCKCHAIN_RPC_URL = import.meta.env.VITE_BLOCKCHAIN_RPC_URL || "http://127.0.0.1:8545";
@@ -7,6 +8,37 @@ export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || "0x5FbD
 export const IPFS_GATEWAY = import.meta.env.VITE_IPFS_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
 export const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY || "d17ac6a9-e2ac-41ca-872e-4a58e78bf77a";
 
+// Helper methods for JWT Token Management
+export const getAuthToken = () => localStorage.getItem("authToken");
+export const setAuthToken = (token) => {
+  if (token) {
+    localStorage.setItem("authToken", token);
+  } else {
+    localStorage.removeItem("authToken");
+  }
+};
+export const removeAuthToken = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userEmail");
+  localStorage.removeItem("userFullname");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("userAvatar");
+  localStorage.removeItem("userSpecialization");
+  localStorage.removeItem("hospitalLogo");
+};
+
+// Global Axios Request Interceptor for automatic JWT Authorization header
+axios.interceptors.request.use(
+  (config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 export default {
   API_BASE_URL,
   BLOCKCHAIN_RPC_URL,
@@ -14,4 +46,7 @@ export default {
   CONTRACT_ADDRESS,
   IPFS_GATEWAY,
   WEB3FORMS_ACCESS_KEY,
+  getAuthToken,
+  setAuthToken,
+  removeAuthToken,
 };

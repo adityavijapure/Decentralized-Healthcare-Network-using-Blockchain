@@ -3,6 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Spring%20Boot-3.4.2-brightgreen?logo=springboot&logoColor=white" alt="Spring Boot 3.4.2" />
   <img src="https://img.shields.io/badge/Java-17%20%7C%2021-orange?logo=openjdk&logoColor=white" alt="Java 17/21" />
+  <img src="https://img.shields.io/badge/Security-JWT%20Tokens-000000?logo=jsonwebtokens&logoColor=white" alt="JWT Tokens" />
   <img src="https://img.shields.io/badge/React.js-19.2.0-blue?logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?logo=tailwindcss&logoColor=white" alt="Tailwind CSS v4" />
   <img src="https://img.shields.io/badge/Ethereum-Web3j%20%7C%20Ethers.js-627EEA?logo=ethereum&logoColor=white" alt="Ethereum" />
@@ -26,8 +27,8 @@ Modern Healthcare Information Systems (HIS) and Electronic Health Records (EHR) 
 **HealthChain** is a next-generation decentralized healthcare infrastructure that bridges **Enterprise Java (Spring Boot 3)**, **Serverless Cloud Databases (Neon PostgreSQL)**, and **Public Blockchain (Ethereum/MetaMask)**.
 
 By leveraging **hybrid cryptographic storage**, HealthChain ensures:
-- **Patient-Centric Ownership**: Patients authenticate using their decentralized Web3 identity (MetaMask wallet) and grant granular access to medical records.
-- **Cryptographic Immutability**: Every diagnostic report, prescription, and laboratory document is hashed using SHA-256 and mapped into an IPFS/Blockchain Content Identifier (CID). Any file tampering is immediately flagged by the ledger.
+- **Seamless Database Authentication & JWT Security**: Account credentials (Patient, Doctor, Hospital) are encrypted using BCrypt and stored strictly in the Neon PostgreSQL database. Authentication issues stateless, signed JWT tokens for lightning-fast logins with zero blockchain latency or gas fees.
+- **Cryptographic Immutability**: Every diagnostic report, prescription, and laboratory document is hashed using SHA-256 and anchored to the Ethereum ledger. Any file tampering is immediately flagged by the ledger.
 - **MNC-Grade Cloud Architecture**: Scalable, serverless PostgreSQL running on Neon Cloud (AWS us-east-2) ensures high availability and zero operational downtime, coupled with Spring Boot's multi-layered security.
 
 ---

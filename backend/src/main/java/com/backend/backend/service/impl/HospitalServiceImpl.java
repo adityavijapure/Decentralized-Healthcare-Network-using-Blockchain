@@ -9,9 +9,9 @@ import com.backend.backend.exception.DuplicateResourceException;
 import com.backend.backend.exception.FileStorageException;
 import com.backend.backend.exception.InvalidCredentialsException;
 import com.backend.backend.repository.HospitalRepository;
-import com.backend.backend.service.BlockchainService;
 import com.backend.backend.service.FileStorageService;
 import com.backend.backend.service.HospitalService;
+import com.backend.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,18 +23,18 @@ public class HospitalServiceImpl implements HospitalService {
 
     private final HospitalRepository hospitalRepository;
     private final FileStorageService fileStorageService;
-    private final BlockchainService blockchainService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Autowired
     public HospitalServiceImpl(HospitalRepository hospitalRepository,
                                FileStorageService fileStorageService,
-                               BlockchainService blockchainService,
-                               PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder,
+                               JwtUtil jwtUtil) {
         this.hospitalRepository = hospitalRepository;
         this.fileStorageService = fileStorageService;
-        this.blockchainService = blockchainService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -55,8 +55,7 @@ public class HospitalServiceImpl implements HospitalService {
             logoName = fileStorageService.storeFile(hospitalLogo, AppConstants.UPLOAD_DIR_HOSPITALS);
         }
 
-        String blockchainHash = blockchainService.generateNodeHash("HOSP-NODE", request.getEmail());
-
+        // Store hospital account in database
         Hospital hospital = new Hospital(
                 request.getEmail(),
                 passwordEncoder.encode(request.getPassword()),
@@ -67,7 +66,7 @@ public class HospitalServiceImpl implements HospitalService {
                 regCertName,
                 logoName,
                 request.getWalletAddress(),
-                blockchainHash,
+                "HOSP_VERIFIED",
                 AppConstants.STATUS_VERIFIED
         );
 
@@ -84,7 +83,12 @@ public class HospitalServiceImpl implements HospitalService {
             throw new InvalidCredentialsException("Invalid Admin Credentials");
         }
 
+        // Generate secure JWT token
+        String token = jwtUtil.generateToken(hospital.getEmail(), AppConstants.ROLE_HOSPITAL, hospital.getHospitalName());
+
         return AuthResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
                 .email(hospital.getEmail())
                 .hospitalName(hospital.getHospitalName())
                 .role(AppConstants.ROLE_HOSPITAL)

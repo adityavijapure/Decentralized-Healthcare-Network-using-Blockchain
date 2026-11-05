@@ -11,6 +11,7 @@ import com.backend.backend.repository.PatientRepository;
 import com.backend.backend.service.FileStorageService;
 import com.backend.backend.service.PatientService;
 import com.backend.backend.util.HashUtil;
+import com.backend.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,14 +24,17 @@ public class PatientServiceImpl implements PatientService {
     private final PatientRepository patientRepository;
     private final FileStorageService fileStorageService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Autowired
     public PatientServiceImpl(PatientRepository patientRepository, 
                               FileStorageService fileStorageService, 
-                              PasswordEncoder passwordEncoder) {
+                              PasswordEncoder passwordEncoder,
+                              JwtUtil jwtUtil) {
         this.patientRepository = patientRepository;
         this.fileStorageService = fileStorageService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -45,6 +49,7 @@ public class PatientServiceImpl implements PatientService {
             profileImagePath = fileStorageService.storeFile(profileImage, AppConstants.UPLOAD_DIR_PATIENTS);
         }
 
+        // Store patient account securely in Database
         Patient patient = new Patient(
                 request.getFullname(),
                 request.getEmail(),
@@ -63,6 +68,7 @@ public class PatientServiceImpl implements PatientService {
             throw new DuplicateResourceException("Email already exists!");
         }
 
+        // Store patient account securely in Database
         Patient patient = new Patient(
                 request.getFullname(),
                 request.getEmail(),
@@ -94,7 +100,12 @@ public class PatientServiceImpl implements PatientService {
             throw new InvalidCredentialsException("Invalid Email or Password");
         }
 
+        // Generate secure JWT token
+        String token = jwtUtil.generateToken(patient.getEmail(), AppConstants.ROLE_PATIENT, patient.getFullname());
+
         return AuthResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
                 .email(patient.getEmail())
                 .fullname(patient.getFullname())
                 .role(AppConstants.ROLE_PATIENT)

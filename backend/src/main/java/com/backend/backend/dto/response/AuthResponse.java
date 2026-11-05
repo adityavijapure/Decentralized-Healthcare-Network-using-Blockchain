@@ -2,6 +2,8 @@ package com.backend.backend.dto.response;
 
 public class AuthResponse {
 
+    private String token;
+    private String tokenType = "Bearer";
     private String email;
     private String fullname;
     private String hospitalName;
@@ -15,9 +17,11 @@ public class AuthResponse {
     public AuthResponse() {
     }
 
-    public AuthResponse(String email, String fullname, String hospitalName, String role, 
-                        String specialization, String status, String profileImagePath, 
-                        String logo, String walletAddress) {
+    public AuthResponse(String token, String tokenType, String email, String fullname, 
+                        String hospitalName, String role, String specialization, 
+                        String status, String profileImagePath, String logo, String walletAddress) {
+        this.token = token;
+        this.tokenType = tokenType != null ? tokenType : "Bearer";
         this.email = email;
         this.fullname = fullname;
         this.hospitalName = hospitalName;
@@ -34,6 +38,8 @@ public class AuthResponse {
     }
 
     public static class Builder {
+        private String token;
+        private String tokenType = "Bearer";
         private String email;
         private String fullname;
         private String hospitalName;
@@ -44,6 +50,8 @@ public class AuthResponse {
         private String logo;
         private String walletAddress;
 
+        public Builder token(String token) { this.token = token; return this; }
+        public Builder tokenType(String tokenType) { this.tokenType = tokenType; return this; }
         public Builder email(String email) { this.email = email; return this; }
         public Builder fullname(String fullname) { this.fullname = fullname; return this; }
         public Builder hospitalName(String hospitalName) { this.hospitalName = hospitalName; return this; }
@@ -55,9 +63,15 @@ public class AuthResponse {
         public Builder walletAddress(String walletAddress) { this.walletAddress = walletAddress; return this; }
 
         public AuthResponse build() {
-            return new AuthResponse(email, fullname, hospitalName, role, specialization, status, profileImagePath, logo, walletAddress);
+            return new AuthResponse(token, tokenType, email, fullname, hospitalName, role, specialization, status, profileImagePath, logo, walletAddress);
         }
     }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
+
+    public String getTokenType() { return tokenType; }
+    public void setTokenType(String tokenType) { this.tokenType = tokenType; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

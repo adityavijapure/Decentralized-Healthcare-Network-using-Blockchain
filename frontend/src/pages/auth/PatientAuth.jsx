@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { ethers } from "ethers";
 import { 
   User, 
   ShieldCheck, 
@@ -11,23 +10,19 @@ import {
   Lock, 
   Sparkles, 
   CheckCircle2, 
-  Wallet,
-  AlertCircle,
-  Stethoscope,
-  Building2,
-  FileText,
+  Database,
   KeyRound,
-  ArrowRight
+  ArrowRight,
+  Stethoscope,
+  Building2
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
-import { API_BASE_URL } from "../../config/api";
+import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function PatientAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [hasMetaMask, setHasMetaMask] = useState(false);
-  const [walletConnected, setWalletConnected] = useState("");
   
   const [formData, setFormData] = useState({ 
     fullname: "", 
@@ -38,21 +33,8 @@ export default function PatientAuth() {
   
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      setHasMetaMask(true);
-      window.ethereum.request({ method: "eth_accounts" })
-        .then(accounts => {
-          if (accounts && accounts.length > 0) {
-            setWalletConnected(accounts[0]);
-          }
-        })
-        .catch(() => {});
-    }
-  }, []);
-
   const handleAction = async () => {
-    // --- 1. LOGIN LOGIC ---
+    // --- 1. LOGIN LOGIC (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
         return alert("Please enter your registered email and password.");
@@ -64,94 +46,67 @@ export default function PatientAuth() {
           password: formData.password
         });
 
-        localStorage.setItem("userEmail", formData.email.trim());
-        localStorage.setItem("userFullname", response.data.fullname || "Patient User");
+        const data = response.data;
+        // Store JWT Token & User State
+        if (data.token) {
+          setAuthToken(data.token);
+        }
+        localStorage.setItem("userEmail", data.email || formData.email.trim());
+        localStorage.setItem("userFullname", data.fullname || "Patient User");
         localStorage.setItem("userRole", "Patient");
-        localStorage.setItem("userAvatar", response.data.profileImagePath || "");
+        localStorage.setItem("userAvatar", data.profileImagePath || "");
 
         navigate('/patient/dashboard');
       } catch (err) {
-        alert("Login failed: " + (err.response?.data || "Invalid credentials or backend offline."));
+        alert("Login failed: " + (err.response?.data?.message || err.response?.data || "Invalid credentials or backend offline."));
       } finally {
         setLoading(false);
       }
       return;
     }
 
-    // --- 2. SIGNUP + BLOCKCHAIN LOGIC ---
+    // --- 2. SIGNUP LOGIC (STORED IN DATABASE) ---
     if (!formData.fullname.trim() || !formData.email.trim() || !formData.password.trim()) {
       return alert("Please fill in your name, email, and password.");
     }
 
-    if (!window.ethereum) {
-      alert("MetaMask extension is required to anchor a decentralized patient identity on Ethereum. Please install MetaMask and try again.");
-      return;
-    }
-
     setLoading(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      if (!accounts || accounts.length === 0) {
-        alert("Please connect an active account in MetaMask.");
-        setLoading(false);
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum, "any");
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
-      setWalletConnected(walletAddress);
-
-      let signature;
-      try {
-        signature = await signer.signMessage(`Registering Patient Node: ${formData.email.trim()}`);
-      } catch (signErr) {
-        if (
-          signErr.code === 4001 || 
-          signErr.info?.error?.code === 4001 || 
-          signErr.message?.toLowerCase().includes("user rejected")
-        ) {
-          alert("Signature rejected in MetaMask. Please approve the signature to initialize your patient account.");
-          return;
-        }
-        alert("MetaMask Signature Error: " + (signErr.message || "Approval cancelled."));
-        return;
-      }
-
       const data = new FormData();
       data.append("fullname", formData.fullname.trim());
       data.append("email", formData.email.trim());
       data.append("password", formData.password);
-      data.append("walletAddress", walletAddress);
-      data.append("signature", signature);
       
       if (formData.profileImage) {
         data.append("profileImage", formData.profileImage);
       }
 
-      try {
-        await axios.post(`${API_BASE_URL}/api/auth/patient/signup`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } catch (apiErr) {
-        if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-          alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease make sure the Spring Boot backend is running.`);
-          return;
-        }
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on backend";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
-        return;
-      }
+      await axios.post(`${API_BASE_URL}/api/auth/patient/signup`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
+      // Automatically authenticate to obtain JWT token
+      const loginRes = await axios.post(`${API_BASE_URL}/api/auth/patient/login`, {
+        email: formData.email.trim(),
+        password: formData.password
+      });
+
+      if (loginRes.data.token) {
+        setAuthToken(loginRes.data.token);
+      }
       localStorage.setItem("userEmail", formData.email.trim());
       localStorage.setItem("userFullname", formData.fullname.trim());
       localStorage.setItem("userRole", "Patient");
 
       navigate('/patient/dashboard');
 
-    } catch (err) {
-      console.error("Initialization failed:", err);
-      alert("Initialization Error: " + (err.message || "Unknown error occurred."));
+    } catch (apiErr) {
+      if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
+        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
+      } else {
+        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on database";
+        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+      }
     } finally {
       setLoading(false);
     }
@@ -212,7 +167,7 @@ export default function PatientAuth() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-400/20 border border-teal-400/30 text-teal-200 text-[10px] font-bold uppercase tracking-wider mb-6">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Self-Sovereign Identity</span>
+                <span>JWT Secure Authentication</span>
               </div>
 
               <h2 className="text-3xl font-extrabold tracking-tight leading-tight">
@@ -222,42 +177,38 @@ export default function PatientAuth() {
               </h2>
 
               <p className="text-xs text-teal-100/90 mt-4 leading-relaxed">
-                Take full control of your lifetime diagnostic records. Grant instant, secure access to verified physicians and revoke permissions anytime via smart contracts.
+                Take full control of your lifetime diagnostic records. Account credentials are kept securely in our encrypted database with stateless JWT session authorization.
               </p>
 
               {/* Benefit Bullets */}
               <div className="space-y-3 mt-8 pt-6 border-t border-white/10 text-xs">
                 <div className="flex items-center gap-2.5 text-teal-100">
                   <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
-                  <span>AES-256 Encrypted Cloud Storage</span>
+                  <span>Stateless JWT Bearer Token Security</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-teal-100">
                   <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
-                  <span>Permanent Blockchain Audit History</span>
+                  <span>BCrypt Salted Password Encryption</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-teal-100">
                   <CheckCircle2 className="w-4 h-4 text-teal-300 shrink-0" />
-                  <span>Zero Data Selling or Tracking</span>
+                  <span>Zero Gas Fees for Account Access</span>
                 </div>
               </div>
             </div>
 
-            {/* MetaMask Status Pill */}
+            {/* Database & JWT Status Pill */}
             <div className="mt-8 pt-4 border-t border-white/10">
               <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 backdrop-blur-md flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${hasMetaMask ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                  <Wallet className="w-4 h-4" />
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400">
+                  <Database className="w-4 h-4" />
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
-                    {hasMetaMask ? "MetaMask Detected" : "Browser Wallet Notice"}
+                    Database Verified
                   </p>
                   <p className="text-xs font-semibold text-white truncate">
-                    {walletConnected 
-                      ? `${walletConnected.slice(0, 6)}...${walletConnected.slice(-4)}`
-                      : hasMetaMask 
-                        ? "Ready for On-Chain Signing" 
-                        : "Extension recommended for Signup"}
+                    Neon PostgreSQL • JWT 256-bit
                   </p>
                 </div>
               </div>
@@ -291,18 +242,18 @@ export default function PatientAuth() {
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Create Node</span>
+                <span>Create Account</span>
               </button>
             </div>
 
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-white tracking-tight">
-                {isSignUp ? "Register Patient Node" : "Welcome Back"}
+                {isSignUp ? "Create Patient Account" : "Welcome Back"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
                 {isSignUp 
-                  ? "Enter your credentials to anchor your patient identity onto the ledger." 
-                  : "Sign in with your verified credentials to access medical records."}
+                  ? "Enter your details to create your secure database health record account." 
+                  : "Sign in with your registered email and password to receive a JWT session token."}
               </p>
             </div>
 
@@ -326,7 +277,7 @@ export default function PatientAuth() {
 
                     <FileUpload 
                       label="Profile Picture (Optional)"
-                      hint="JPG/PNG for identity verification"
+                      hint="JPG/PNG for profile personalization"
                       onChange={(file) => setFormData({...formData, profileImage: file})}
                     />
                   </motion.div>
@@ -344,7 +295,7 @@ export default function PatientAuth() {
               />
 
               <InputField 
-                label="Secure Access Key / Password" 
+                label="Password" 
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -358,10 +309,10 @@ export default function PatientAuth() {
                 <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                   <label className="flex items-center gap-2 cursor-pointer hover:text-slate-300">
                     <input type="checkbox" className="w-4 h-4 rounded accent-teal-500 bg-slate-900 border-white/10" />
-                    <span>Remember this device</span>
+                    <span>Remember this session</span>
                   </label>
                   <span className="text-teal-400 hover:text-teal-300 cursor-pointer font-medium">
-                    Lost key?
+                    Forgot password?
                   </span>
                 </div>
               )}
@@ -369,7 +320,7 @@ export default function PatientAuth() {
               {isSignUp && (
                 <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 text-[11px] leading-relaxed flex items-start gap-2">
                   <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Node initialization prompts a free MetaMask signature verification to prove Ethereum identity.</span>
+                  <span>Your account is stored securely in Neon PostgreSQL with BCrypt salted hash encryption.</span>
                 </div>
               )}
               
@@ -379,15 +330,15 @@ export default function PatientAuth() {
                 className="w-full py-4 mt-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-slate-950 font-black rounded-xl transition-all uppercase tracking-wider text-xs shadow-xl shadow-teal-500/25 active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? (
-                  <span>Anchoring to Network...</span>
+                  <span>Authenticating...</span>
                 ) : isSignUp ? (
                   <>
-                    <Wallet className="w-4 h-4" />
-                    <span>Initialize Patient Node</span>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Create Patient Account</span>
                   </>
                 ) : (
                   <>
-                    <span>Access Patient Portal</span>
+                    <span>Sign In to Portal</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -400,9 +351,9 @@ export default function PatientAuth() {
                 onClick={() => setIsSignUp(!isSignUp)} 
                 className="text-xs text-slate-400 hover:text-white transition-colors"
               >
-                {isSignUp ? "Already anchored on HealthChain? " : "New to the decentralized network? "}
+                {isSignUp ? "Already registered? " : "New patient? "}
                 <span className="text-teal-400 font-bold underline ml-1">
-                  {isSignUp ? "Sign In" : "Register Node"}
+                  {isSignUp ? "Sign In" : "Create Account"}
                 </span>
               </button>
             </div>

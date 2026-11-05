@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { ethers } from "ethers";
 import { 
   Stethoscope, 
   User, 
@@ -10,26 +9,23 @@ import {
   ArrowLeft, 
   Fingerprint, 
   Lock, 
-  Sparkles,
-  ShieldCheck,
-  Award,
-  Wallet,
-  Building2,
-  KeyRound,
-  ArrowRight,
-  CheckCircle2,
-  Calendar
+  Sparkles, 
+  ShieldCheck, 
+  Award, 
+  Database,
+  Building2, 
+  KeyRound, 
+  ArrowRight, 
+  CheckCircle2
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
-import { API_BASE_URL } from "../../config/api";
+import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function DoctorAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMetaMask, setHasMetaMask] = useState(false);
-  const [walletConnected, setWalletConnected] = useState("");
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -43,29 +39,16 @@ export default function DoctorAuth() {
     proofFile: null
   });
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      setHasMetaMask(true);
-      window.ethereum.request({ method: "eth_accounts" })
-        .then(accounts => {
-          if (accounts && accounts.length > 0) {
-            setWalletConnected(accounts[0]);
-          }
-        })
-        .catch(() => {});
-    }
-  }, []);
-
   const toggleMode = (signUp) => {
     setIsSignUp(signUp);
     setStep(1);
   };
 
   const handleAction = async () => {
-    // --- 1. LOGIN LOGIC ---
+    // --- 1. DOCTOR LOGIN (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
-        return alert("Please enter both your doctor email and access password.");
+        return alert("Please enter both your registered doctor email and password.");
       }
       setLoading(true);
       try {
@@ -74,21 +57,25 @@ export default function DoctorAuth() {
           password: formData.password
         });
         
-        localStorage.setItem("userEmail", res.data.email);
-        localStorage.setItem("userFullname", res.data.fullname);
-        localStorage.setItem("userSpecialization", res.data.specialization);
+        const data = res.data;
+        if (data.token) {
+          setAuthToken(data.token);
+        }
+        localStorage.setItem("userEmail", data.email || formData.email.trim());
+        localStorage.setItem("userFullname", data.fullname || "Medical Doctor");
+        localStorage.setItem("userSpecialization", data.specialization || "");
         localStorage.setItem("userRole", "Doctor");
 
         navigate('/doctor/dashboard');
       } catch (err) {
-        alert("Doctor Login Failed: " + (err.response?.data || "Check Credentials or verify backend connectivity."));
+        alert("Doctor Login Failed: " + (err.response?.data?.message || err.response?.data || "Check Credentials or verify backend connectivity."));
       } finally {
         setLoading(false);
       }
       return;
     }
 
-    // --- 2. SIGNUP PROGRESSION ---
+    // --- 2. SIGNUP PROGRESSION (STEP 1) ---
     if (step === 1) {
       if (!formData.email.trim() || !formData.password.trim() || !formData.fullname.trim()) {
         return alert("Please complete your name, email, and password.");
@@ -97,48 +84,16 @@ export default function DoctorAuth() {
       return;
     }
 
-    // --- 3. BLOCKCHAIN & MULTIPART UPLOAD ---
+    // --- 3. MEDICAL CREDENTIALS UPLOAD & DATABASE STORAGE (STEP 2) ---
     if (!formData.licenseNumber.trim() || !formData.specialization.trim()) {
-      return alert("Please complete your license number and clinical specialization.");
+      return alert("Please complete your medical license number and clinical specialization.");
     }
     if (!formData.proofFile) {
-      return alert("Medical qualification document / photo proof is mandatory.");
-    }
-    if (!window.ethereum) {
-      return alert("MetaMask is required to anchor your verified Doctor node on the blockchain.");
+      return alert("Medical qualification document / photo proof is mandatory for clinical verification.");
     }
 
     setLoading(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      if (!accounts || accounts.length === 0) {
-        alert("Please connect an active account in MetaMask.");
-        setLoading(false);
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum, "any");
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
-      setWalletConnected(walletAddress);
-
-      const message = `HealthChain Doctor Registration\nLicense: ${formData.licenseNumber}\nNode: ${formData.email.trim()}`;
-      let signature;
-      try {
-        signature = await signer.signMessage(message);
-      } catch (signErr) {
-        if (
-          signErr.code === 4001 || 
-          signErr.info?.error?.code === 4001 || 
-          signErr.message?.toLowerCase().includes("user rejected")
-        ) {
-          alert("Signature rejected in MetaMask. Please approve the signature to initialize your doctor account.");
-          return;
-        }
-        alert("MetaMask Error: " + (signErr.message || "Signing failed."));
-        return;
-      }
-
       const data = new FormData();
       data.append("email", formData.email.trim());
       data.append("password", formData.password);
@@ -147,24 +102,21 @@ export default function DoctorAuth() {
       data.append("regYear", formData.regYear || "2024");
       data.append("medicalCouncil", formData.medicalCouncil || "General Medical Council");
       data.append("specialization", formData.specialization.trim());
-      data.append("walletAddress", walletAddress);
-      data.append("blockchainSignature", signature);
       data.append("proofFile", formData.proofFile);
 
-      try {
-        await axios.post(`${API_BASE_URL}/api/doctor/signup`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } catch (apiErr) {
-        if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-          alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease make sure the Spring Boot backend is running.`);
-          return;
-        }
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on backend";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
-        return;
-      }
+      await axios.post(`${API_BASE_URL}/api/doctor/signup`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
+      // Automatically authenticate to obtain JWT token
+      const loginRes = await axios.post(`${API_BASE_URL}/api/doctor/login`, {
+        email: formData.email.trim(),
+        password: formData.password
+      });
+
+      if (loginRes.data.token) {
+        setAuthToken(loginRes.data.token);
+      }
       localStorage.setItem("userEmail", formData.email.trim());
       localStorage.setItem("userFullname", formData.fullname.trim());
       localStorage.setItem("userSpecialization", formData.specialization.trim());
@@ -172,9 +124,13 @@ export default function DoctorAuth() {
 
       navigate('/doctor/dashboard');
 
-    } catch (err) {
-      console.error(err);
-      alert("Doctor Signup Error: " + (err.message || "Ensure MetaMask is connected."));
+    } catch (apiErr) {
+      if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
+        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
+      } else {
+        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Signup failed on database";
+        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+      }
     } finally {
       setLoading(false);
     }
@@ -233,7 +189,7 @@ export default function DoctorAuth() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-400/20 border border-blue-400/30 text-blue-200 text-[10px] font-bold uppercase tracking-wider mb-6">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Verified Clinical Node</span>
+                <span>JWT Secure Practitioner Access</span>
               </div>
 
               <h2 className="text-3xl font-extrabold tracking-tight leading-tight">
@@ -243,42 +199,38 @@ export default function DoctorAuth() {
               </h2>
 
               <p className="text-xs text-blue-100/90 mt-4 leading-relaxed">
-                Connect with patient-authorized records on the blockchain. Decrypt lab diagnostics, view MRI/CT scans, and review immutable audit histories securely.
+                Review diagnostic reports and patient medical histories. Credentials are encrypted and securely stored in our cloud PostgreSQL database with JWT session authentication.
               </p>
 
               {/* Benefit Bullets */}
               <div className="space-y-3 mt-8 pt-6 border-t border-white/10 text-xs">
                 <div className="flex items-center gap-2.5 text-blue-100">
                   <CheckCircle2 className="w-4 h-4 text-blue-300 shrink-0" />
-                  <span>Smart Contract Access Permissions</span>
+                  <span>Stateless JWT Bearer Token Security</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-blue-100">
                   <CheckCircle2 className="w-4 h-4 text-blue-300 shrink-0" />
-                  <span>Client-Side File Decryption</span>
+                  <span>Secure Cloud License Document Storage</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-blue-100">
                   <CheckCircle2 className="w-4 h-4 text-blue-300 shrink-0" />
-                  <span>Transparent Access Audit Logs</span>
+                  <span>BCrypt Salted Password Encryption</span>
                 </div>
               </div>
             </div>
 
-            {/* MetaMask Status Pill */}
+            {/* Database Status Pill */}
             <div className="mt-8 pt-4 border-t border-white/10">
               <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 backdrop-blur-md flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${hasMetaMask ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                  <Wallet className="w-4 h-4" />
+                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
+                  <Database className="w-4 h-4" />
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
-                    {hasMetaMask ? "MetaMask Detected" : "Browser Wallet Notice"}
+                    Database Verified
                   </p>
                   <p className="text-xs font-semibold text-white truncate">
-                    {walletConnected 
-                      ? `${walletConnected.slice(0, 6)}...${walletConnected.slice(-4)}`
-                      : hasMetaMask 
-                        ? "Ready for Practitioner Signing" 
-                        : "MetaMask recommended for registration"}
+                    Neon PostgreSQL • JWT 256-bit
                   </p>
                 </div>
               </div>
@@ -333,12 +285,12 @@ export default function DoctorAuth() {
               <h3 className="text-2xl font-bold text-white tracking-tight">
                 {isSignUp 
                   ? (step === 1 ? "Create Practitioner Account" : "Medical Qualifications") 
-                  : "Doctor Portal Access"}
+                  : "Doctor Portal Sign In"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
                 {isSignUp 
-                  ? (step === 1 ? "Enter your core account and login credentials." : "Attach official registration proof to verify clinical identity.")
-                  : "Verify credentials to decrypt patient-authorized diagnostic records."}
+                  ? (step === 1 ? "Enter your email and credentials for database registration." : "Attach official registration proof to verify clinical identity.")
+                  : "Sign in with your registered email and password to receive a JWT session token."}
               </p>
             </div>
 
@@ -374,7 +326,7 @@ export default function DoctorAuth() {
                     />
 
                     <InputField 
-                      label="Access Key / Password" 
+                      label="Password" 
                       type="password" 
                       placeholder="••••••••"
                       value={formData.password} 
@@ -391,7 +343,7 @@ export default function DoctorAuth() {
                           <span>Remember doctor session</span>
                         </label>
                         <span className="text-blue-400 hover:text-blue-300 cursor-pointer font-medium">
-                          Recover credentials
+                          Forgot password?
                         </span>
                       </div>
                     )}
@@ -466,7 +418,7 @@ export default function DoctorAuth() {
                   className="flex-[2] py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black rounded-xl shadow-xl shadow-blue-600/25 transition-all uppercase tracking-wider text-xs flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
                 >
                   {loading ? (
-                    <span>Anchoring Doctor Node...</span>
+                    <span>Authenticating...</span>
                   ) : isSignUp ? (
                     step === 1 ? (
                       <>
@@ -475,13 +427,13 @@ export default function DoctorAuth() {
                       </>
                     ) : (
                       <>
-                        <Wallet className="w-4 h-4" />
-                        <span>Sign & Register Practitioner</span>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Register Practitioner</span>
                       </>
                     )
                   ) : (
                     <>
-                      <span>Access Doctor Portal</span>
+                      <span>Sign In to Doctor Portal</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -495,9 +447,9 @@ export default function DoctorAuth() {
                 onClick={() => toggleMode(!isSignUp)} 
                 className="text-xs text-slate-400 hover:text-white transition-colors"
               >
-                {isSignUp ? "Already a verified doctor? " : "New medical specialist? "} 
+                {isSignUp ? "Already a registered doctor? " : "New medical specialist? "} 
                 <span className="text-blue-400 underline font-bold ml-1">
-                  {isSignUp ? "Sign In" : "Register Node"}
+                  {isSignUp ? "Sign In" : "Register Doctor"}
                 </span>
               </button>
             </div>

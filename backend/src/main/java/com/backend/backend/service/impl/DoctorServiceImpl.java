@@ -11,9 +11,9 @@ import com.backend.backend.exception.DuplicateResourceException;
 import com.backend.backend.exception.InvalidCredentialsException;
 import com.backend.backend.repository.DoctorRepository;
 import com.backend.backend.repository.RecordRepository;
-import com.backend.backend.service.BlockchainService;
 import com.backend.backend.service.DoctorService;
 import com.backend.backend.service.FileStorageService;
+import com.backend.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,20 +28,20 @@ public class DoctorServiceImpl implements DoctorService {
     private final DoctorRepository doctorRepository;
     private final RecordRepository recordRepository;
     private final FileStorageService fileStorageService;
-    private final BlockchainService blockchainService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     @Autowired
     public DoctorServiceImpl(DoctorRepository doctorRepository,
                              RecordRepository recordRepository,
                              FileStorageService fileStorageService,
-                             BlockchainService blockchainService,
-                             PasswordEncoder passwordEncoder) {
+                             PasswordEncoder passwordEncoder,
+                             JwtUtil jwtUtil) {
         this.doctorRepository = doctorRepository;
         this.recordRepository = recordRepository;
         this.fileStorageService = fileStorageService;
-        this.blockchainService = blockchainService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -56,8 +56,7 @@ public class DoctorServiceImpl implements DoctorService {
             proofFilePath = fileStorageService.storeFile(proofFile, AppConstants.UPLOAD_DIR_DOCTORS);
         }
 
-        String validityHash = blockchainService.generateNodeHash("DrVerify", request.getEmail());
-
+        // Store doctor record in database with verified status
         Doctor doctor = new Doctor(
                 request.getFullname(),
                 request.getEmail(),
@@ -68,7 +67,7 @@ public class DoctorServiceImpl implements DoctorService {
                 request.getRegYear(),
                 request.getWalletAddress(),
                 proofFilePath,
-                validityHash,
+                "DB_VERIFIED",
                 AppConstants.STATUS_AUTHORIZED
         );
 
@@ -85,7 +84,12 @@ public class DoctorServiceImpl implements DoctorService {
             throw new InvalidCredentialsException("Invalid Credentials");
         }
 
+        // Generate secure JWT token
+        String token = jwtUtil.generateToken(doctor.getEmail(), AppConstants.ROLE_DOCTOR, doctor.getFullname());
+
         return AuthResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
                 .email(doctor.getEmail())
                 .fullname(doctor.getFullname())
                 .role(AppConstants.ROLE_DOCTOR)
@@ -103,6 +107,6 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Override
     public String requestAccess(AccessRequestDto request) {
-        return "Access Request broadcasted to Blockchain for Patient: " + request.getPatientEmail();
+        return "Access Request sent for Patient: " + request.getPatientEmail();
     }
 }

@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { ethers } from "ethers";
 import { 
   Building2, 
   ArrowLeft, 
@@ -10,25 +9,22 @@ import {
   Fingerprint, 
   Lock, 
   ShieldCheck, 
-  FileCheck2, 
-  Sparkles,
-  Wallet,
-  CheckCircle2,
-  Stethoscope,
-  User,
-  KeyRound,
-  ArrowRight,
-  FileBadge
+  Sparkles, 
+  CheckCircle2, 
+  Stethoscope, 
+  User, 
+  KeyRound, 
+  ArrowRight, 
+  FileBadge,
+  Database
 } from "lucide-react";
 import InputField from "../../components/auth/InputField";
 import FileUpload from "../../components/auth/FileUpload";
-import { API_BASE_URL } from "../../config/api";
+import { API_BASE_URL, setAuthToken } from "../../config/api";
 
 export default function HospitalAuth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [hasMetaMask, setHasMetaMask] = useState(false);
-  const [walletConnected, setWalletConnected] = useState("");
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -43,19 +39,6 @@ export default function HospitalAuth() {
     isCompliant: false
   });
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      setHasMetaMask(true);
-      window.ethereum.request({ method: "eth_accounts" })
-        .then(accounts => {
-          if (accounts && accounts.length > 0) {
-            setWalletConnected(accounts[0]);
-          }
-        })
-        .catch(() => {});
-    }
-  }, []);
-
   const toggleMode = (signUp) => {
     setIsSignUp(signUp);
     setFormData(prev => ({ 
@@ -67,6 +50,7 @@ export default function HospitalAuth() {
   };
 
   const handleAction = async () => {
+    // --- 1. HOSPITAL LOGIN (DATABASE + JWT) ---
     if (!isSignUp) {
       if (!formData.email.trim() || !formData.password.trim()) {
         return alert("Please enter both admin email and password.");
@@ -78,66 +62,38 @@ export default function HospitalAuth() {
           password: formData.password
         });
         
-        localStorage.setItem("userEmail", res.data.email);
-        localStorage.setItem("userFullname", res.data.hospitalName);
+        const data = res.data;
+        if (data.token) {
+          setAuthToken(data.token);
+        }
+        localStorage.setItem("userEmail", data.email || formData.email.trim());
+        localStorage.setItem("userFullname", data.hospitalName || "Hospital Facility");
         localStorage.setItem("userRole", "Hospital");
-        localStorage.setItem("hospitalLogo", res.data.logo); 
+        if (data.logo) localStorage.setItem("hospitalLogo", data.logo); 
 
         navigate('/hospital/dashboard');
       } catch (err) {
-        alert("Access Denied: " + (err.response?.data || "Check Credentials or verify backend is online."));
+        alert("Access Denied: " + (err.response?.data?.message || err.response?.data || "Check Credentials or verify backend is online."));
       } finally {
         setLoading(false);
       }
       return;
     }
 
+    // --- 2. HOSPITAL SIGNUP (STORED IN DATABASE) ---
     if (!formData.email.trim() || !formData.password.trim() || !formData.hospitalName.trim() || !formData.licenseNumber.trim()) {
       return alert("Please fill in the required hospital information.");
     }
 
     if (!formData.regCert) {
-      return alert("STRICT REQUIREMENT: Government Registration Certificate is missing.");
+      return alert("STRICT REQUIREMENT: Government Registration Certificate is mandatory.");
     }
     if (!formData.isCompliant) {
-      return alert("LEGAL REQUIREMENT: You must agree to the Blockchain Compliance Policy.");
-    }
-    if (!window.ethereum) {
-      return alert("MetaMask is required to anchor Institutional Node Identity.");
+      return alert("LEGAL REQUIREMENT: You must confirm the institutional accuracy policy.");
     }
 
     setLoading(true);
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      if (!accounts || accounts.length === 0) {
-        alert("Please connect an active account in MetaMask.");
-        setLoading(false);
-        return;
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum, "any");
-      const signer = await provider.getSigner();
-      const walletAddress = await signer.getAddress();
-      setWalletConnected(walletAddress);
-      
-      let signature;
-      try {
-        signature = await signer.signMessage(
-          `HealthChain Institutional Authorization:\nInstitution: ${formData.hospitalName.trim()}\nLicense: ${formData.licenseNumber.trim()}\nAdmin: ${formData.email.trim()}`
-        );
-      } catch (signErr) {
-        if (
-          signErr.code === 4001 || 
-          signErr.info?.error?.code === 4001 || 
-          signErr.message?.toLowerCase().includes("user rejected")
-        ) {
-          alert("Signature rejected in MetaMask. Please approve the signature to initialize your institutional account.");
-          return;
-        }
-        alert("MetaMask Error: " + (signErr.message || "Signing failed."));
-        return;
-      }
-
       const data = new FormData();
       data.append("email", formData.email.trim());
       data.append("password", formData.password);
@@ -145,33 +101,34 @@ export default function HospitalAuth() {
       data.append("estYear", formData.estYear || "2000");
       data.append("licenseNumber", formData.licenseNumber.trim());
       data.append("councilReg", formData.councilReg || "State Clinical Registry");
-      data.append("walletAddress", walletAddress);
-      data.append("blockchainSignature", signature);
       data.append("regCert", formData.regCert);
       if (formData.hospitalLogo) data.append("hospitalLogo", formData.hospitalLogo);
 
-      try {
-        await axios.post(`${API_BASE_URL}/api/hospital/signup`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } catch (apiErr) {
-        if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
-          alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease make sure the Spring Boot backend is running.`);
-          return;
-        }
-        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Onboarding failed on backend";
-        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
-        return;
-      }
+      await axios.post(`${API_BASE_URL}/api/hospital/signup`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
+      // Automatically authenticate to obtain JWT token
+      const loginRes = await axios.post(`${API_BASE_URL}/api/hospital/login`, {
+        email: formData.email.trim(),
+        password: formData.password
+      });
+
+      if (loginRes.data.token) {
+        setAuthToken(loginRes.data.token);
+      }
       localStorage.setItem("userEmail", formData.email.trim());
       localStorage.setItem("userFullname", formData.hospitalName.trim());
       localStorage.setItem("userRole", "Hospital");
 
       navigate('/hospital/dashboard');
-    } catch (err) {
-      console.error(err);
-      alert("Hospital Node Error: " + (err.message || "Verify your connection."));
+    } catch (apiErr) {
+      if (apiErr.code === "ERR_NETWORK" || !apiErr.response) {
+        alert(`Backend Server Offline: Cannot connect to ${API_BASE_URL}.\nPlease ensure the Spring Boot backend is running.`);
+      } else {
+        const serverMsg = apiErr.response?.data?.message || apiErr.response?.data || "Onboarding failed on database";
+        alert(typeof serverMsg === "string" ? serverMsg : JSON.stringify(serverMsg));
+      }
     } finally {
       setLoading(false);
     }
@@ -230,7 +187,7 @@ export default function HospitalAuth() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-400/20 border border-purple-400/30 text-purple-200 text-[10px] font-bold uppercase tracking-wider mb-6">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Institutional Authority Node</span>
+                <span>JWT Institutional Security</span>
               </div>
 
               <h2 className="text-3xl font-extrabold tracking-tight leading-tight">
@@ -240,42 +197,38 @@ export default function HospitalAuth() {
               </h2>
 
               <p className="text-xs text-purple-100/90 mt-4 leading-relaxed">
-                Connect clinical labs, imaging centers, and hospitals. Authenticate patients on arrival, mint verifiable diagnostic hashes, and upload securely to AWS S3.
+                Connect clinical labs, diagnostic imaging centers, and hospitals. Authenticate patients on arrival, manage official reports, and store records securely in our cloud database.
               </p>
 
               {/* Benefit Bullets */}
               <div className="space-y-3 mt-8 pt-6 border-t border-white/10 text-xs">
                 <div className="flex items-center gap-2.5 text-purple-100">
                   <CheckCircle2 className="w-4 h-4 text-purple-300 shrink-0" />
-                  <span>Direct Encrypted S3 Bucket Uploads</span>
+                  <span>Stateless JWT Bearer Token Security</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-purple-100">
                   <CheckCircle2 className="w-4 h-4 text-purple-300 shrink-0" />
-                  <span>Proof-of-Authority Report Minting</span>
+                  <span>Encrypted Hospital Certificate Storage</span>
                 </div>
                 <div className="flex items-center gap-2.5 text-purple-100">
                   <CheckCircle2 className="w-4 h-4 text-purple-300 shrink-0" />
-                  <span>Immediate Patient Identity Verification</span>
+                  <span>BCrypt Salted Password Protection</span>
                 </div>
               </div>
             </div>
 
-            {/* MetaMask Status Pill */}
+            {/* Database Status Pill */}
             <div className="mt-8 pt-4 border-t border-white/10">
               <div className="p-3.5 rounded-2xl bg-black/30 border border-white/10 backdrop-blur-md flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${hasMetaMask ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                  <Wallet className="w-4 h-4" />
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
+                  <Database className="w-4 h-4" />
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
-                    {hasMetaMask ? "MetaMask Active" : "Web3 Identity Notice"}
+                    Database Verified
                   </p>
                   <p className="text-xs font-semibold text-white truncate">
-                    {walletConnected 
-                      ? `${walletConnected.slice(0, 6)}...${walletConnected.slice(-4)}`
-                      : hasMetaMask 
-                        ? "Ready for Institutional Anchor" 
-                        : "MetaMask recommended for setup"}
+                    Neon PostgreSQL • JWT 256-bit
                   </p>
                 </div>
               </div>
@@ -315,12 +268,12 @@ export default function HospitalAuth() {
 
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-white tracking-tight">
-                {isSignUp ? "Institutional Onboarding" : "Portal Access"}
+                {isSignUp ? "Institutional Onboarding" : "Hospital Portal Access"}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
                 {isSignUp 
                   ? "Register clinical facility node with verified government license." 
-                  : "Sign in with hospital admin credentials to upload reports."}
+                  : "Sign in with hospital admin credentials to receive a JWT session token."}
               </p>
             </div>
 
@@ -337,7 +290,7 @@ export default function HospitalAuth() {
                 />
                 
                 <InputField 
-                  label="Decryption Access Key" 
+                  label="Password" 
                   type="password"
                   placeholder="••••••••"
                   icon={<Lock className="w-4 h-4 text-purple-400"/>}
@@ -354,7 +307,7 @@ export default function HospitalAuth() {
                     <span>Remember hospital console</span>
                   </label>
                   <span className="text-purple-400 hover:text-purple-300 cursor-pointer font-medium">
-                    Reset node key
+                    Forgot password?
                   </span>
                 </div>
               )}
@@ -427,7 +380,7 @@ export default function HospitalAuth() {
                           onChange={(e) => setFormData({...formData, isCompliant: e.target.checked})}
                         />
                         <span className="text-xs text-slate-300 font-medium leading-relaxed">
-                          I verify that all uploaded documents are authentic and agree to the <span className="text-purple-400 underline font-semibold">HealthChain Protocol Compliance Policy</span>.
+                          I verify that all uploaded institution documents are authentic and agree to standard health data compliance.
                         </span>
                       </label>
                     </div>
@@ -441,15 +394,15 @@ export default function HospitalAuth() {
                 className="w-full py-4 mt-4 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-black rounded-xl shadow-xl shadow-purple-600/25 transition-all uppercase tracking-wider text-xs flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
               >
                 {loading ? (
-                  <span>Anchoring Institutional Node...</span>
+                  <span>Authenticating...</span>
                 ) : isSignUp ? (
                   <>
-                    <Wallet className="w-4 h-4" />
-                    <span>Initialize Hospital Node</span>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Register Hospital Facility</span>
                   </>
                 ) : (
                   <>
-                    <span>Access Hospital Portal</span>
+                    <span>Sign In to Hospital Portal</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -462,9 +415,9 @@ export default function HospitalAuth() {
                 onClick={() => toggleMode(!isSignUp)} 
                 className="text-xs text-slate-400 hover:text-white transition-colors"
               >
-                {isSignUp ? "Already registered hospital node? " : "Registering a new institution? "} 
+                {isSignUp ? "Already registered hospital? " : "Registering a new institution? "} 
                 <span className="text-purple-400 underline font-bold ml-1">
-                  {isSignUp ? "Sign In" : "Register Node"}
+                  {isSignUp ? "Sign In" : "Register Institution"}
                 </span>
               </button>
             </div>
