@@ -42,17 +42,24 @@ public class RecordServiceImpl implements RecordService {
     @Override
     @Transactional
     public String uploadRecord(String title, String email, MultipartFile file) {
+        return uploadRecord(title, email, file, "General Report");
+    }
+
+    @Override
+    @Transactional
+    public String uploadRecord(String title, String email, MultipartFile file, String category) {
         if (title == null || title.isBlank() || email == null || email.isBlank()) {
             throw new BadRequestException("Title and email are required");
         }
 
+        String storedFileName = null;
         if (file != null && !file.isEmpty()) {
-            fileStorageService.storeFile(file, AppConstants.UPLOAD_DIR_RECORDS);
+            storedFileName = fileStorageService.storeFile(file, AppConstants.UPLOAD_DIR_RECORDS);
         }
 
         String blockchainHash = blockchainService.generateRecordHash(title, email, file);
 
-        MedicalRecord record = new MedicalRecord(title, blockchainHash, email);
+        MedicalRecord record = new MedicalRecord(title, blockchainHash, email, category, storedFileName);
         recordRepository.save(record);
 
         return blockchainHash;

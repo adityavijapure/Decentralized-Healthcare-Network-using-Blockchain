@@ -8,6 +8,6 @@ import java.util.List;
 public interface RecordService {
     List<MedicalRecord> getRecordsByPatient(String email);
     String uploadRecord(String title, String email, MultipartFile file);
+    String uploadRecord(String title, String email, MultipartFile file, String category);
     void deleteRecord(Long id);
 }
-

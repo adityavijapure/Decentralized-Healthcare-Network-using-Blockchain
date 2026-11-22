@@ -22,6 +22,10 @@ public class MedicalRecord {
     @Column(nullable = false)
     private String patientEmail;
 
+    private String category = "General Report";
+
+    private String fileName;
+
     public MedicalRecord() {
     }
 
@@ -29,6 +33,16 @@ public class MedicalRecord {
         this.title = title;
         this.fileHash = fileHash;
         this.patientEmail = patientEmail;
+        this.date = LocalDate.now().toString();
+        this.category = "General Report";
+    }
+
+    public MedicalRecord(String title, String fileHash, String patientEmail, String category, String fileName) {
+        this.title = title;
+        this.fileHash = fileHash;
+        this.patientEmail = patientEmail;
+        this.category = category != null && !category.isBlank() ? category : "General Report";
+        this.fileName = fileName;
         this.date = LocalDate.now().toString();
     }
 
@@ -38,6 +52,17 @@ public class MedicalRecord {
         this.fileHash = fileHash;
         this.date = date != null ? date : LocalDate.now().toString();
         this.patientEmail = patientEmail;
+        this.category = "General Report";
+    }
+
+    public MedicalRecord(Long id, String title, String fileHash, String date, String patientEmail, String category, String fileName) {
+        this.id = id;
+        this.title = title;
+        this.fileHash = fileHash;
+        this.date = date != null ? date : LocalDate.now().toString();
+        this.patientEmail = patientEmail;
+        this.category = category != null && !category.isBlank() ? category : "General Report";
+        this.fileName = fileName;
     }
 
     public Long getId() { return id; }
@@ -54,4 +79,10 @@ public class MedicalRecord {
 
     public String getPatientEmail() { return patientEmail; }
     public void setPatientEmail(String patientEmail) { this.patientEmail = patientEmail; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
 }

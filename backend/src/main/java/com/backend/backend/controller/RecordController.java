@@ -31,9 +31,10 @@ public class RecordController {
     public ResponseEntity<String> uploadRecord(
             @RequestParam("title") String title,
             @RequestParam("email") String email,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam(value = "category", required = false, defaultValue = "General Report") String category,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
 
-        String blockchainHash = recordService.uploadRecord(title, email, file);
+        String blockchainHash = recordService.uploadRecord(title, email, file, category);
         return ResponseEntity.ok("Record secured on Blockchain Hash: " + blockchainHash);
     }
 
